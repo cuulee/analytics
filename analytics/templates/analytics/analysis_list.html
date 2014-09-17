@@ -8,8 +8,8 @@
 
 {% block body %}
   <div class="col-md-12">
-    <a href="" class="btn btn-primary pull-right">{% trans "Create a New Analysis" %}</a>
-    <h2 class="page-title">{% trans "Explore Maps" %}</h2>
+    <a href="{% url 'new_analysis' %}" class="btn btn-primary pull-right">{% trans "Create a New Analysis" %}</a>
+    <h2 class="page-title">{% trans "Explore Analyses" %}</h2>
   </div>
   {% include "search/_search_content.html" %}
 {% endblock %}

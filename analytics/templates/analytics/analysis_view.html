@@ -1,0 +1,117 @@
+{% extends "site_base.html" %}
+
+{% load i18n %}
+{% load base_tags %}
+
+{% block title %} {% trans "Analytics" %} - {{ block.super }} {% endblock %}
+
+{% block body_class %}analytics{% endblock %}
+
+{% block extra_head %}
+
+    <link rel="stylesheet" type="text/css" charset="utf-8" href="{{ STATIC_URL }}analytics/css/dc.css">
+    <link rel="stylesheet" type="text/css" charset="utf-8" href="{{ STATIC_URL }}analytics/css/analysis_view.css">
+    <link rel="stylesheet" type="text/css" charset="utf-8" href="{{ STATIC_URL }}analytics/css/pnotify.custom.min.css">
+{% endblock %}
+
+
+{% block middle %}
+
+    {% include "analytics/_save_form.html" %}
+
+    <div id="toolbox">
+        <div class="pull-right">
+
+            {% if not analysis %}
+                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis" %}</a>
+            {% else %}
+                <a id="analysis-update" class="btn btn-primary">{% trans "Save Analysis" %}</a>
+                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Copy Analysis" %}</a>
+            {% endif %}
+
+            <a id="resize" class="btn btn-default fa fa-arrows-v"></a>
+        </div>
+
+        <div id="fact-selector">&nbsp;</div>
+    </div>
+
+    <div class="chart-columns" id="left-pane">
+        <div id="clouds"></div>
+    </div>
+
+    <div class="chart-columns" id="middle-pane">
+        <div id="map"></div>
+        <table id="map-utils">
+            <tr>
+                <td id="legend"></td>
+                <td class="buttons">
+                    <span id="reset"></span>
+                    <span id="zoom"></span>
+                </td>
+            </tr>
+        </table>
+        <div id="timeline"></div>
+    </div>
+
+    <div class="chart-columns" id="right-pane">
+        <div id="rightChart"></div>
+        <table id="table"></table>
+    </div>
+
+{% endblock %}
+
+{% block footer %}{% endblock %}
+
+{% block extra_script %}
+<script src="{{ STATIC_URL }}/analytics/js/d3.v3.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/crossfilter.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/dc.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/Query.js" type="application/javascript" charset="utf-8"></script>
+<script src="{{ STATIC_URL }}analytics/js/wicket.js" type="application/javascript" charset="utf-8"></script>
+<script src="{{ STATIC_URL }}analytics/js/Display.js" type="application/javascript" charset="utf-8"></script>
+<script src="{{ STATIC_URL }}analytics/js/FactSelector.js" type="application/javascript" charset="utf-8"></script>
+<script src="{{ STATIC_URL }}/analytics/js/Save.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/solap4py-js/QueryAPI.js" type="application/javascript"></script>
+<script>
+  Query.queryAPI = new QueryAPI();
+  var headerShown = true;
+  var paddingTop = null;
+
+  $("#resize").click(function() {
+    if (headerShown) {
+      $(".navbar").hide();
+      $(".chart-columns").css("top", "43px");
+      paddingTop = $("body").css("padding-top");
+      $("body").css("padding-top", "0");
+      headerShown = false;
+      Display.resizeCharts(true);
+    } else {
+      $(".navbar").show();
+      $(".chart-columns").css("top", "123px");
+      paddingTop = $("body").css("padding-top", paddingTop);
+      headerShown = true;
+      Display.resizeCharts(true);
+    }
+  });
+
+  Save.init('#modal_analysis', '#title-save', '#abstract-save');
+  $("#permission_form").submit(function() { return false; });
+  {% if not analysis %}
+    $("#analysis_submit").click(function () {
+      Save.save(this, Display.getState());
+    });
+  {% else %}
+    Display.setState(JSON.parse({{ analysis.data|safe }}));
+    var analysisid = {{ analysis.id }};
+    $("#analysis_submit").click(function () {
+      Save.save(this, Display.getState());
+    });
+    $("#analysis-update").click(function () {
+      PNotify.prototype.options.delay =  3000;
+      Save.update(analysisid, Display.getState());
+    });
+  {% endif %}
+  Display.init();
+</script>
+{% endblock %}

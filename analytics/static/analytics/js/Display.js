@@ -802,11 +802,11 @@ var Display = {
         .showLegend('#legend');
 
         d3.select(this.options.zoomSelector).append("a")
-            .attr("class","btn icon-zoom-in")
+            .attr("class","btn btn-primary fa fa-search-plus")
             .attr("href","#")
             .on("click", function () { that.charts[chart].element.addScale(1.35, 700); return false; });
         d3.select(this.options.zoomSelector).append("a")
-            .attr("class","btn icon-zoom-out")
+            .attr("class","btn btn-primary fa fa-search-minus")
             .attr("href","#")
             .on("click", function () { that.charts[chart].element.addScale(1/1.35, 700); return false; });
     }
@@ -1123,7 +1123,7 @@ var Display = {
 
 
     d3.select(this.options.resetSelector).append("a")
-        .attr("class","btn icon-refresh")
+        .attr("class","btn btn-primary fa fa-refresh")
         .attr("href","#")
         .text(" Reset Filters")
         .on("click", function () {

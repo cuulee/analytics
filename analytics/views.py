@@ -8,6 +8,7 @@ from django.core.exceptions import PermissionDenied
 from geonode.utils import resolve_object
 from analytics.models import Analysis
 from django.shortcuts import render
+import json
 
 _PERMISSION_MSG_DELETE = _("You are not permitted to delete this analysis.")
 _PERMISSION_MSG_GENERIC = _('You do not have permissions for this analysis.')
@@ -41,6 +42,55 @@ def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
             raise PermissionDenied
 
         return HttpResponse('You are not allowed to view this analysis', status=401, mimetype='text/plain')
+
+def analysis_data(request, analysisid):
+    """ Update the analysis. """
+    if request.method == 'PUT':
+        try:
+            analysis_obj = _resolve_analysis(request, analysisid, 'base.change_resourcebase',
+                                             _PERMISSION_MSG_DELETE, permission_required=True)
+            try:
+                data = json.loads(request.body)
+                analysis_obj.data = json.dumps(data['data'])
+                analysis_obj.save()
+                return HttpResponse("Analysis updated", mimetype="text/plain", status=200)
+            except (ValueError, KeyError):
+                return HttpResponse(
+                    "This is not a valid json document",
+                    mimetype="text/plain",
+                    status=400
+                )
+
+        except PermissionDenied:
+            return HttpResponse(
+                "You are not allowed to modify this analysis.",
+                mimetype="text/plain",
+                status=401
+            )
+    else:
+        return HttpResponse(status=405)
+
+def new_analysis_json(request):
+    """ The view that saves a new analysis in the database. """
+    if request.method == 'POST':
+        if not request.user.is_authenticated():
+            return HttpResponse(
+                'You must be logged in to save new analysis',
+                mimetype="text/plain",
+                status=401
+            )
+        try:
+            data = json.loads(request.body)
+            analysis_obj = Analysis(owner=request.user, title=data['title'], abstract=data['abstract'], data=json.dumps(data['data']))
+            analysis_obj.save()
+            analysis_obj.set_default_permissions() # This needs to be after .save() so that the analysis has an id.
+            return HttpResponse(analysis_obj.id, status=200, mimetype='text/plain')
+
+        except (ValueError, KeyError):
+            return HttpResponse('Invalid data.', status=400, mimetype='text/plain')
+
+    else:
+        return HttpResponse(status=405)
 
 @never_cache
 @csrf_exempt

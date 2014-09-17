@@ -13,7 +13,9 @@ api.register(AnalysisResource())
 urlpatterns = patterns('',
     url(r'^analytics/$', TemplateView.as_view(template_name='analytics/analysis_list.html'), name='analyses_browse'),
     url(r'^analytics/new/$', TemplateView.as_view(template_name='analytics/analysis_view.html'), name='new_analysis'),
-    url(r'^analytics/(?P<analysisid>\d+)/view', 'analytics.views.analysis_view', name='analysis_view'),
+    url(r'^analytics/new/data/$', 'analytics.views.new_analysis_json', name='new_analysis_json'),
+    url(r'^analytics/(?P<analysisid>\d+)/view/$', 'analytics.views.analysis_view', name='analysis_view'),
+    url(r'^analytics/(?P<analysisid>\d+)/data/$', 'analytics.views.analysis_data', name='analysis_data'),
     url(r'^analytics/api/$', 'analytics.views.solap4py_api', name='solap4py_api'),
     url(r'', include(api.urls))
  ) + urlpatterns

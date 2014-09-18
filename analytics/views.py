@@ -3,11 +3,12 @@
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
+from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.core.exceptions import PermissionDenied
 from geonode.utils import resolve_object
 from analytics.models import Analysis
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 import json
 
 _PERMISSION_MSG_DELETE = _("You are not permitted to delete this analysis.")
@@ -91,6 +92,26 @@ def new_analysis_json(request):
 
     else:
         return HttpResponse(status=405)
+
+
+@login_required
+def analysis_remove(request, analysisid, template='analytics/analysis_remove.html'):
+    """ Delete an analysis with the given analysisid. """
+    try:
+        analysis_obj = _resolve_analysis(request, analysisid, 'base.delete_resourcebase', _PERMISSION_MSG_DELETE, permission_required=True)
+        if request.method == 'GET':
+            return render(request, template, {
+                "analysis": analysis_obj
+                })
+        elif request.method == 'POST':
+            analysis_obj.delete()
+            return redirect("analyses_browse")
+    except PermissionDenied:
+        return HttpResponse(
+            "You are not allowed to remove this analysis.",
+            mimetype="text/plain",
+            status=401
+            )
 
 @never_cache
 @csrf_exempt

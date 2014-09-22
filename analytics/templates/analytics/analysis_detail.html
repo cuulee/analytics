@@ -1,0 +1,212 @@
+{% extends "analytics/analysis_base.html" %}
+{% load i18n %}
+{% load dialogos_tags %}
+{% load agon_ratings_tags %}
+{% load url from future %}
+{% load base_tags %}
+{% load guardian_tags %}
+
+{% block title %}{{ resource.title }} — {{ block.super }}{% endblock %}
+
+{% block head %}
+{% comment %}{% include "maps/map_include.html" %}{% endcomment %}
+{{ block.super }}
+{% endblock %}
+
+{% block body_class %}analysis{% endblock %}
+
+{% block body_outer %}
+  {% overall_rating resource "analysis" as analysis_rating %}
+  <div class="row">
+    <div class="col-md-12">
+      <h2 class="page-title">{{ resource.title }}</h2>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-8">
+
+      <!--<div id="embedded_map">-->
+        <!--<div id="the_map"></div>-->
+      <!--</div>-->
+
+      <div class="map-actions">
+        <ul class="nav nav-tabs">
+          <li class="active"><a href="#info" data-toggle="tab"><i class="icon-info-sign"></i>{% trans "Info" %}</a></li>
+
+          {% if SOCIAL_BUTTONS %}
+          <li><a href="#share" data-toggle="tab"><i class="icon-share"></i>{% trans "Share" %}</a></li>
+          {% endif %}
+
+          <li><a href="#rate" data-toggle="tab"><i class="icon-star"></i>{% trans "Ratings" %}</a></li>
+          <li><a href="#comments" data-toggle="tab"><i class="icon-comment"></i> {% trans "Comments" %}</a></li>
+        </ul>
+      </div>
+
+      <div class="tab-content">
+        {% include "base/resourcebase_info_panel.html" %}
+        <article class="tab-pane" id="comments">
+        {% include "_comments.html" %}
+        </article>
+        <article class="tab-pane" id="rate">
+        <!-- TODO: Move this to a reusable template snippet -->
+          {% if request.user.is_authenticated %}
+          <h3>{% trans "Rate this Map" %}</h3>
+          {% user_rating request.user resource "analysis" as user_analysis_rating %}
+          <div id="user_rating" class="category-map" data-score="{{ user_analysis_rating }}"></div>
+          {% endif %}
+          <h3>{% trans 'Average Rating' %}</h3>
+          {% overall_rating resource "analysis" as analysis_rating %}
+          {% num_ratings resource as num_votes %}
+          <div class="overall_rating" style="float:left" data-score="{{ analysis_rating }}"></div> ({{num_votes}})
+        </article>
+        {% block social_links %}
+            {% if SOCIAL_BUTTONS %}
+                {% include "social_links.html" %}
+            {% endif %}
+        {% endblock %}
+      </div>
+
+    </div>
+
+    <div class="col-md-4">
+      <ul class="list-group">
+
+        {% get_obj_perms request.user for resource.get_self_resource as "resource_perms" %}
+        {% if "change_resourcebase" in resource_perms %}
+        <li class="list-group-item">
+          <button class="btn btn-default btn-md btn-block" data-toggle="modal" data-target="#edit-map">{% trans "Edit Analysis" %}</button>
+        </li>
+        <div class="modal fade" id="edit-map" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+          <div class="modal-dialog">
+            <div class="modal-content">
+              <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                <h4 class="modal-title" id="myModalLabel">{% trans "Edit Analysis" %}</h4>
+              </div>
+              <div class="modal-body">
+                <ul>
+                  <li><a href="">{% trans "Edit Analysis Metadata" %}</a></li>
+                  {% if PRINT_NG_ENABLED %}
+                  <li><a href="#" id="set_thumbnail">{% trans "Set Analysis Thumbnail" %}</a></li>
+                  {% endif %}
+                  <li><a href="#modal_perms" data-toggle="modal">{% trans "Edit Analysis Permissions" %}</a></li>
+                  <li><a href="{% url "analysis_remove" resource.id %}">{% trans "Remove this Analysis" %}</a></li>
+                <ul>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">{% trans "Close" %}</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+        <li class="list-group-item">
+          <a href="{% url "analysis_view" resource.id %}" class="btn btn-default btn-md btn-block">{% trans "View Analysis" %}</a>
+        </li>
+        {% comment %}
+        <li class="list-group-item">
+          <a href="#" class="btn btn-default btn-md btn-block">{% trans "Print Map" %}</a>
+        </li>
+        {% endcomment %}
+
+        {% if documents.count > 0 %}
+        <li class="list-group-item">
+          <h4>{% trans "Documents related to this analysis" %}</h4>
+          <p>{% trans "List of documents related to this analysis:" %}</p>
+          <ul class="list-unstyled">
+            {% for document in documents %}
+            <li><a href="{{ document.get_absolute_url }}">{{ document.title }}</a></li>
+            {% endfor %}
+          </ul>
+        </li>
+        {% endif %}
+
+        {% if "change_resourcebase_permissions" in resource_perms %}
+        <li class="list-group-item">
+          <h4>{% trans "Permissions" %}</h4>
+          <p>{% trans "Specify which users can view or modify this analysis" %}</p>
+          <button class="btn btn-default btn-md btn-block" data-toggle="modal" data-target="#_permissions">{% trans "Change Permissions of this Analysis" %}</button>
+        </li>
+        {% include "_permissions_form.html" %}
+        {% endif %}
+
+        <li class="list-group-item">
+          <h4>{% trans "Copy this analysis" %}</h4>
+          <p>{% trans "Duplicate this map and modify it for your own purposes" %}</p>
+          <a href="{% url "new_analysis" %}?copy={{ resource.id }}" class="btn btn-default btn-md btn-block">{% trans "Create a New Analysis" %}</a>
+        </li>
+
+        {% if resource.is_public and "change_resourcebase" in resource_perms or resource.layer_group %}
+        <li class="list-group-item">
+          <h4>{% trans "Map WMS" %}</h4>
+          <dl>{% if resource.layer_group %}
+            <dt>{% trans "WMS layer group for local map layers" %}:</dt>
+            <dd><em>{{ resource.layer_group.name }}</em> ({% trans "on" %} <a href="{{ ows }}?service=WMS&request=GetCapabilities">{% trans "local OWS" %}</a>)</dd>
+            {% endif %}</dl>
+          {% if "change_resourcebase" in resource_perms %}
+          <p>{% trans "Publish local map layers as WMS layer group" %}</p>
+          <a href="{%url "map_wms" resource.id %}" class="btn btn-default btn-md btn-block">{% trans "Publish Map WMS" %}</a>
+          {% endif %}
+        </li>
+        {% endif %}
+
+        {% include "base/_resourcebase_contact_snippet.html" %}
+
+      </ul>
+    </div>
+
+  </div>
+
+  {% endblock %}
+
+{% block extra_script %}
+{% if SOCIAL_BUTTONS %}
+<div id="fb-root"></div>
+<script>(function(d, s, id) {
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/all.js#xfbml=1";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));</script>
+{% endif %}
+{% if request.user.is_authenticated %}
+      {% user_rating_js request.user resource "analysis" %}
+{% else %}
+      {% overall_rating resource "analysis" as the_analysis_rating %}
+{% endif %}
+<script type="text/javascript" src="{{ STATIC_URL}}geonode/js/thumbnail/map_thumbnail.js"></script>
+{% include 'rating.html' %}
+<script type="text/javascript">
+{% if SOCIAL_BUTTONS %}
+ (function() {
+   var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+   po.src = 'https://apis.google.com/js/plusone.js';
+   var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+ })();
+{% endif %}
+  $("#comment_submit_btn").click(function(event) {
+    $.ajax({
+      type: "POST",
+      url: $("#form_post_comment").attr('action'),
+      data: $("#form_post_comment").serialize(),
+      success: function() {
+        $('#form_post_comment_div').modal('hide');
+        $('#comments_section').load(window.location.pathname + ' #comments_section',
+          function(){$(this).children().unwrap()})
+      }
+    });
+    return false;
+  });
+
+{% if PRINT_NG_ENABLED %}
+  $('#set_thumbnail').click(function(){
+    return createMapThumbnail();
+  });
+{% endif %}
+
+</script>
+{% include "_permissions_form_js.html" %}
+{% endblock %}

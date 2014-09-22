@@ -1,8 +1,10 @@
 
 
+from geonode.security.views import _perms_info_json
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
+from geonode.documents.models import get_related_documents
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
 from django.core.exceptions import PermissionDenied
@@ -43,6 +45,25 @@ def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
             raise PermissionDenied
 
         return HttpResponse('You are not allowed to view this analysis', status=401, mimetype='text/plain')
+
+def analysis_detail(request, analysisid, template='analytics/analysis_detail.html'):
+    """ The view that show details of each analysis. """
+    try:
+        analysis_obj = _resolve_analysis(request, analysisid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
+
+        analysis_obj.popular_count += 1
+        analysis_obj.save()
+
+        return render(request, template, {
+            'resource' : analysis_obj,
+            'documents' : get_related_documents(analysis_obj),
+            'permission_json' : _perms_info_json(analysis_obj),
+        })
+    except PermissionDenied:
+        if not request.user.is_authenticated():
+            # If the user is not authenticated raising a PermissionDenied redirects him to the login page
+            raise PermissionDenied
+    return HttpResponse('You are not allowed to view this analysis', status=401, mimetype='text/plain')
 
 def analysis_data(request, analysisid):
     """ Update the analysis. """

@@ -151,7 +151,7 @@ var FactSelector = {
    */
   displayButtons : function (element, callback) {
 
-    this.displayList(element, callback, "btn-group", "btn");
+    this.displayList(element, callback, "btn btn-group", "btn btn-default");
     element.container.empty();
     element.container.append(element.intro+' ');
     element.container.append(element.list);
@@ -170,9 +170,9 @@ var FactSelector = {
     this.displayList(element, callback, "dropdown-menu", "", true);
     element.container.empty();
     element.container.append(element.intro+' ');
-    element.title = $('<a class="btn dropdown-toggle" data-toggle="dropdown" href="#">'+element.intro+' <span class="caret"></span></a>');
+    element.title = $('<a class="btn btn-default dropdown-toggle" data-toggle="dropdown" href="#">'+element.intro+' <span class="caret"></span></a>');
     element.container.append(
-      $('<div class="btn-group"></div>')
+      $('<div class="btn-group btn-default"></div>')
         .append(element.title)
         .append(element.list)
     );

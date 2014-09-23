@@ -81,14 +81,14 @@
   $("#resize").click(function() {
     if (headerShown) {
       $(".navbar").hide();
-      $(".chart-columns").css("top", "43px");
+      $(".chart-columns").css("top", "50px");
       paddingTop = $("body").css("padding-top");
       $("body").css("padding-top", "0");
       headerShown = false;
       Display.resizeCharts(true);
     } else {
       $(".navbar").show();
-      $(".chart-columns").css("top", "123px");
+      $(".chart-columns").css("top", "100px");
       paddingTop = $("body").css("padding-top", paddingTop);
       headerShown = true;
       Display.resizeCharts(true);

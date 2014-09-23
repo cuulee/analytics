@@ -26,7 +26,7 @@
                 <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis" %}</a>
             {% else %}
                 <a id="analysis-update" class="btn btn-primary">{% trans "Save Analysis" %}</a>
-                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Copy Analysis" %}</a>
+                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis as" %}</a>
             {% endif %}
 
             <a id="resize" class="btn btn-default fa fa-arrows-v"></a>
@@ -101,6 +101,9 @@
     $("#analysis_submit").click(function () {
       Save.save(this, Display.getState());
     });
+    {% if config %}
+      Display.setState(JSON.parse({{ config|safe }}));
+    {% endif %}
   {% else %}
     Display.setState(JSON.parse({{ analysis.data|safe }}));
     var analysisid = {{ analysis.id }};

@@ -28,7 +28,15 @@ def _resolve_analysis(request, identifier, permission='base.change_resourcebase'
                           permission_msg=msg, **kwargs)
 
 def new_analysis(request, template='analytics/analysis_view.html'):
-    """ Show a new analysis. """
+    """ Show a new analysis. A copy parameter can be given, this parameter is
+    the id of an analysis from which we should copy the state to display on the
+    new analysis """
+
+    if request.method == 'GET' and 'copy' in request.GET:
+        analysis_obj = _resolve_analysis(request, request.GET['copy'], 'base.view_resourcebase')
+        config = analysis_obj.data
+        return render(request, template, {'config': config})
+
     return render(request, template, {})
 
 def analysis_view(request, analysisid, template='analytics/analysis_view.html'):

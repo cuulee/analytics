@@ -12,7 +12,7 @@ api.register(AnalysisResource())
 
 urlpatterns = patterns('',
     url(r'^analytics/$', TemplateView.as_view(template_name='analytics/analysis_list.html'), name='analyses_browse'),
-    url(r'^analytics/new/$', TemplateView.as_view(template_name='analytics/analysis_view.html'), name='new_analysis'),
+    url(r'^analytics/new/$', 'analytics.views.new_analysis', name='new_analysis'),
     url(r'^analytics/new/data/$', 'analytics.views.new_analysis_json', name='new_analysis_json'),
     url(r'^analytics/(?P<analysisid>\d+)/view/$', 'analytics.views.analysis_view', name='analysis_view'),
     url(r'^analytics/(?P<analysisid>\d+)/$', 'analytics.views.analysis_detail', name='analysis_detail'),

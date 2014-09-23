@@ -62,3 +62,4 @@ LOCALE_PATHS = (
     os.path.join(LOCAL_ROOT, 'locale'),
     ) + LOCALE_PATHS
 
+AGON_RATINGS_CATEGORY_CHOICES["analytics.Analysis"] = { "analysis": "How good is this analysis?" }

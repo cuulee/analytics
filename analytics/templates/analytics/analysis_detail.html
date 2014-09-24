@@ -86,7 +86,7 @@
               </div>
               <div class="modal-body">
                 <ul>
-                  <li><a href="">{% trans "Edit Analysis Metadata" %}</a></li>
+                  <li><a href="{% url "analysis_metadata" resource.id %}">{% trans "Edit Analysis Metadata" %}</a></li>
                   {% if PRINT_NG_ENABLED %}
                   <li><a href="#" id="set_thumbnail">{% trans "Set Analysis Thumbnail" %}</a></li>
                   {% endif %}

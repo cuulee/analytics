@@ -1,5 +1,8 @@
 
-
+from django.utils.html import strip_tags
+from django.core.urlresolvers import reverse
+from django.shortcuts import render_to_response
+from django.template import RequestContext
 from geonode.security.views import _perms_info_json
 from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt
@@ -10,6 +13,10 @@ from django.http import HttpResponse, HttpResponseRedirect
 from django.core.exceptions import PermissionDenied
 from geonode.utils import resolve_object
 from analytics.models import Analysis
+from analytics.forms import AnalysisForm
+from geonode.base.forms import CategoryForm
+from geonode.base.models import TopicCategory
+from geonode.people.forms import ProfileForm
 from django.shortcuts import render, redirect
 import json
 
@@ -141,6 +148,107 @@ def analysis_remove(request, analysisid, template='analytics/analysis_remove.htm
             mimetype="text/plain",
             status=401
             )
+
+@login_required
+def analysis_metadata(request, analysisid, template='analytics/analysis_metadata.html'):
+
+    analysis_obj = _resolve_analysis(request, analysisid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
+
+    poc = analysis_obj.poc
+
+    metadata_author = analysis_obj.metadata_author
+
+    topic_category = analysis_obj.category
+
+    if request.method == "POST":
+        analysis_form = AnalysisForm(request.POST, instance=analysis_obj, prefix="resource")
+        category_form = CategoryForm(
+            request.POST,
+            prefix="category_choice_field",
+            initial=int(
+                request.POST["category_choice_field"]) if "category_choice_field" in request.POST else None)
+    else:
+        analysis_form = AnalysisForm(instance=analysis_obj, prefix="resource")
+        category_form = CategoryForm(
+            prefix="category_choice_field",
+            initial=topic_category.id if topic_category else None)
+
+    if request.method == "POST" and analysis_form.is_valid(
+    ) and category_form.is_valid():
+        new_poc = analysis_form.cleaned_data['poc']
+        new_author = analysis_form.cleaned_data['metadata_author']
+        new_keywords = analysis_form.cleaned_data['keywords']
+        new_title = strip_tags(analysis_form.cleaned_data['title'])
+        new_abstract = strip_tags(analysis_form.cleaned_data['abstract'])
+        new_category = TopicCategory.objects.get(
+            id=category_form.cleaned_data['category_choice_field'])
+
+        if new_poc is None:
+            if poc is None:
+                poc_form = ProfileForm(
+                    request.POST,
+                    prefix="poc",
+                    instance=poc)
+            else:
+                poc_form = ProfileForm(request.POST, prefix="poc")
+            if poc_form.has_changed and poc_form.is_valid():
+                new_poc = poc_form.save()
+
+        if new_author is None:
+            if metadata_author is None:
+                author_form = ProfileForm(request.POST, prefix="author",
+                                          instance=metadata_author)
+            else:
+                author_form = ProfileForm(request.POST, prefix="author")
+            if author_form.has_changed and author_form.is_valid():
+                new_author = author_form.save()
+
+        if new_poc is not None and new_author is not None:
+            the_analysis = analysis_form.save()
+            the_analysis.poc = new_poc
+            the_analysis.metadata_author = new_author
+            the_analysis.title = new_title
+            the_analysis.abstract = new_abstract
+            the_analysis.save()
+            the_analysis.keywords.clear()
+            the_analysis.keywords.add(*new_keywords)
+            the_analysis.category = new_category
+            the_analysis.save()
+            return HttpResponseRedirect(
+                reverse(
+                    'analysis_detail',
+                    args=(
+                        analysis_obj.id,
+                    )))
+    if poc is None:
+        poc_form = ProfileForm(request.POST, prefix="poc")
+    else:
+        if poc is None:
+            poc_form = ProfileForm(instance=poc, prefix="poc")
+        else:
+            analysis_form.fields['poc'].initial = poc.id
+            poc_form = ProfileForm(prefix="poc")
+            poc_form.hidden = True
+
+    if metadata_author is None:
+        author_form = ProfileForm(request.POST, prefix="author")
+    else:
+        if metadata_author is None:
+            author_form = ProfileForm(
+                instance=metadata_author,
+                prefix="author")
+        else:
+            analysis_form.fields['metadata_author'].initial = metadata_author.id
+            author_form = ProfileForm(prefix="author")
+            author_form.hidden = True
+
+    return render_to_response(template, RequestContext(request, {
+        "analysis": analysis_obj,
+        "analysis_form": analysis_form,
+        "poc_form": poc_form,
+        "author_form": author_form,
+        "category_form": category_form,
+    }))
 
 @never_cache
 @csrf_exempt

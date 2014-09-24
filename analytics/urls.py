@@ -5,7 +5,7 @@ from django.views.generic import TemplateView
 from geonode.api.urls import api
 
 from analytics.models import AnalysisResource
-
+#from django.core.urlresolvers import reverse
 import views
 
 api.register(AnalysisResource())
@@ -18,6 +18,7 @@ urlpatterns = patterns('',
     url(r'^analytics/(?P<analysisid>\d+)/$', 'analytics.views.analysis_detail', name='analysis_detail'),
     url(r'^analytics/(?P<analysisid>\d+)/data/$', 'analytics.views.analysis_data', name='analysis_data'),
     url(r'^analytics/(?P<analysisid>\d+)/remove/$', 'analytics.views.analysis_remove', name='analysis_remove'),
+    url(r'^analytics/(?P<analysisid>\d+)/metadata/$', 'analytics.views.analysis_metadata', name='analysis_metadata'),
     url(r'^analytics/api/$', 'analytics.views.solap4py_api', name='solap4py_api'),
     url(r'', include(api.urls))
  ) + urlpatterns

@@ -63,3 +63,10 @@ LOCALE_PATHS = (
     ) + LOCALE_PATHS
 
 AGON_RATINGS_CATEGORY_CHOICES["analytics.Analysis"] = { "analysis": "How good is this analysis?" }
+
+# Tell nose to measure coverage on the 'analytics' app
+NOSE_ARGS = [
+    '--with-coverage',
+    '--cover-package=analytics',
+    '--verbosity=2',
+]

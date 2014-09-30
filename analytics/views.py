@@ -25,6 +25,7 @@ _PERMISSION_MSG_GENERIC = _('You do not have permissions for this analysis.')
 _PERMISSION_MSG_LOGIN = _("You must be logged in to save this analysis")
 _PERMISSION_MSG_METADATA = _("You are not allowed to modify this analysis' metadata.")
 _PERMISSION_MSG_VIEW = _("You are not allowed to view this analysis.")
+_NOT_A_VALID_JSON_DOC = _("Not a valid JSON document.")
 
 def _resolve_analysis(request, identifier, permission='base.change_resourcebase',
                       msg=_PERMISSION_MSG_GENERIC, **kwargs):
@@ -59,7 +60,7 @@ def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
             # If the user is not authenticated raising a PermissionDenied redirects him to the login page
             raise PermissionDenied
 
-        return HttpResponse('You are not allowed to view this analysis', status=401, mimetype='text/plain')
+        return HttpResponse(_PERMISSION_MSG_VIEW, status=401, mimetype='text/plain')
 
 def analysis_detail(request, analysisid, template='analytics/analysis_detail.html'):
     """ The view that show details of each analysis. """
@@ -78,7 +79,7 @@ def analysis_detail(request, analysisid, template='analytics/analysis_detail.htm
         if not request.user.is_authenticated():
             # If the user is not authenticated raising a PermissionDenied redirects him to the login page
             raise PermissionDenied
-    return HttpResponse('You are not allowed to view this analysis', status=401, mimetype='text/plain')
+    return HttpResponse(_PERMISSION_MSG_VIEW, status=401, mimetype='text/plain')
 
 def analysis_data(request, analysisid):
     """ Update the analysis. """
@@ -93,14 +94,14 @@ def analysis_data(request, analysisid):
                 return HttpResponse("Analysis updated", mimetype="text/plain", status=200)
             except (ValueError, KeyError):
                 return HttpResponse(
-                    "This is not a valid json document",
+                    _NOT_A_VALID_JSON_DOC,
                     mimetype="text/plain",
                     status=400
                 )
 
         except PermissionDenied:
             return HttpResponse(
-                "You are not allowed to modify this analysis.",
+                _PERMISSION_MSG_GENERIC,
                 mimetype="text/plain",
                 status=401
             )
@@ -112,7 +113,7 @@ def new_analysis_json(request):
     if request.method == 'POST':
         if not request.user.is_authenticated():
             return HttpResponse(
-                'You must be logged in to save new analysis',
+                _PERMISSION_MSG_LOGIN,
                 mimetype="text/plain",
                 status=401
             )
@@ -144,7 +145,7 @@ def analysis_remove(request, analysisid, template='analytics/analysis_remove.htm
             return redirect("analyses_browse")
     except PermissionDenied:
         return HttpResponse(
-            "You are not allowed to remove this analysis.",
+            _PERMISSION_MSG_DELETE,
             mimetype="text/plain",
             status=401
             )
@@ -264,7 +265,7 @@ def solap4py_api(request):
         print time.time() - start
         return HttpResponse(data, mimetype='application/json', status=200)
     return HttpResponse(
-        'Wrong use of the API',
+        _NOT_A_VALID_JSON_DOC,
         mimetype="text/plain",
         status=200
     )

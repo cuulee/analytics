@@ -1,23 +1,29 @@
 
 from django.utils.html import strip_tags
+from django.utils.translation import ugettext as _
+
 from django.core.urlresolvers import reverse
 from django.shortcuts import render_to_response
 from django.template import RequestContext
-from geonode.security.views import _perms_info_json
-from django.utils.translation import ugettext as _
+
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.cache import never_cache
-from geonode.documents.models import get_related_documents
+
+from django.shortcuts import render, redirect
+from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
-from django.core.exceptions import PermissionDenied
+
 from geonode.utils import resolve_object
-from analytics.models import Analysis
-from analytics.forms import AnalysisForm
 from geonode.base.forms import CategoryForm
 from geonode.base.models import TopicCategory
 from geonode.people.forms import ProfileForm
-from django.shortcuts import render, redirect
+from geonode.security.views import _perms_info_json
+from geonode.documents.models import get_related_documents
+
+from analytics.models import Analysis
+from analytics.forms import AnalysisForm
+
 import json
 
 _PERMISSION_MSG_DELETE = _("You are not permitted to delete this analysis.")

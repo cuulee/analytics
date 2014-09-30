@@ -59,7 +59,7 @@ class AnalysisForm(TranslationModelForm):
         widget=autocomplete_light.ChoiceWidget('ProfileAutocomplete'))
 
     metadata_author = forms.ModelChoiceField(
-	empty_label="Person outside GeoNode (fill form)",
+        empty_label="Person outside GeoNode (fill form)",
         label="Metadata Author",
         required=False,
         queryset=Profile.objects.exclude(
@@ -117,4 +117,4 @@ class AnalysisForm(TranslationModelForm):
                         'data-content': help_text,
                         'data-placement': 'right',
                         'data-container': 'body',
-                        'data-html': 'true'})                                                    
+                        'data-html': 'true'})

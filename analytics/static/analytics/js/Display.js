@@ -61,6 +61,14 @@ var Display = {
       'dimensions' : [],
       'options' : {}
     },
+	/*barChart*/
+    'barChart' : {
+      'selector' : '#barChart',
+      'type' : 'bar',
+      'element' : undefined,
+      'dimensions' : [],
+      'options' : {}
+    },
     'table' : {
       'selector' : '#table',
       'type' : 'table',
@@ -612,6 +620,7 @@ var Display = {
         this.charts.map.options.nbLevels = Object.keys(geoLevels).length - 1;
         this.charts.timeline.dimensions.push(timeDimension);
         this.charts.rightChart.dimensions.push(geoDimension);
+	this.charts.barChart.dimensions.push(geoDimension);
         this.charts.table.dimensions.push(geoDimension);
 
         // instanciate wordclouds (1 per dimension except time)
@@ -634,7 +643,7 @@ var Display = {
         title: 'An error occured',
         text: err.message
       });
-    }
+     }
   },
 
   /**
@@ -764,8 +773,12 @@ var Display = {
         break;
 
       case "pie":
-        this.displayPie(chart);
-        break;
+	this.displayPie(chart);
+	break;
+
+      case "bar":
+	this.displayBar(chart);
+	break;
 
       case "table":
         this.displayTable(chart);
@@ -971,6 +984,77 @@ var Display = {
   },
 
   /**
+   * Display a bar chart
+   *
+   * @private
+   * @param {string} chart id of the chart in the charts attribute
+   *
+   * @todo improve domain. Support negative values for example.
+   */
+  displayBar : function (chart) {
+    var that = this;
+
+    if (this.charts[chart].element === undefined) {
+
+      var width = $(this.charts[chart].selector).width() - 30;
+      var height = $(this.charts[chart].selector).height();
+
+      this.charts[chart].element = dc.barChart(this.charts[chart].selector)
+        //.ordering(function (d) { return d.value; })
+        .width(width)
+        .height(height)
+       // .x(d3.scale.linear().domain([1,1000]))
+//	.x(this.charts[chart].dimensions[0])
+	//.barPadding(0.5)
+	//.elasticY(true)
+	.x(d3.scale.ordinal().domain(function (d) {return this.getSliceFromStack(this.charts[chart].dimensions[0]).members[d.key].caption;}))//function (d) { return metadata.members[d.key].caption; }))//["SEM","OTHERS","SEO", "CSE","ORGANIC","MOBILEWEB", "AFFILIATES","EMAIL", "DISPLAYADS"]))
+        //.margins({top: 10, right: 100, bottom: 70, left:80})
+        //.gap(20)
+	//.brushOn(false)
+        .yAxisLabel("This is the Y Axis!")
+        //.dimension(runDimension)
+        //.group(speedSumGroup)
+    
+	
+        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
+	
+        .colors(d3.scale.quantize().range(this.options.colors))
+        .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; });
+        console.log(this.getSliceFromStack(this.charts[chart].dimensions[0]).members);
+	var tab = [function(d){
+            var key = d.key ? d.key : d.data.key;
+            if (metadata.members[key] === undefined) {
+              return key;
+            }
+	    else{
+	      console.log(metadata.members[key].caption);	
+              return metadata.members[key].caption;
+        	} 
+	 }];
+	console.log(tab);
+      }
+
+
+    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
+
+    var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
+
+    var format = d3.format(".3s");
+
+    this.charts[chart].element
+      .dimension(crossfilterDimAndGroup.dimension)
+      .group(crossfilterDimAndGroup.group)
+      .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
+      .label(function (d) { return metadata.members[d.key].caption; })
+      .title(function (d) {
+        var key = d.key ? d.key : d.data.key;
+        if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
+        return metadata.members[key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
+      });
+      
+  },
+
+  /**
    * Display a timeline
    *
    * @private
@@ -1137,6 +1221,16 @@ var Display = {
               this.charts[chart].element.render();
             break;
 
+          case "bar":
+            this.charts[chart].element
+           //   .radius(0) // reset radius for bar so that it's recomputed
+              .width(width - 30)
+              .height(height);
+
+            if (render)
+              this.charts[chart].element.render();
+            break;
+
           case "map":
             this.charts[chart].element
               .width(width)
@@ -1164,6 +1258,7 @@ var Display = {
         }
       }
     }
+
   },
 
   /**
@@ -1183,6 +1278,7 @@ var Display = {
 
     var that = this;
     $(window).on('resizeend', function () { return that.resizeCharts(true); });
+  
   },
 
   /**
@@ -1194,9 +1290,8 @@ var Display = {
     this.initMeasure();
     this.initMetadata();
     this.getData();
-    this.displayCharts(true);
+    this.displayCharts(true);	
     this.initResize();
-
 
     d3.select(this.options.resetSelector).append("a")
         .attr("class","btn btn-primary fa fa-refresh")
@@ -1374,6 +1469,9 @@ var Display = {
    * - charts.map (#map) : map chart CSS selector
    * - charts.timeline (#timeline) : timeline chart CSS selector
    * - charts.rightChart (#rightChart) : right chart CSS selector
+
+   * - charts.barChart (#barChart) : bar chart CSS selector
+
    * - charts.table (#table) : table chart CSS selector
    *
    * @public

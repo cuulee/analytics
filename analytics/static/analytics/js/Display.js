@@ -76,13 +76,13 @@ var Display = {
    * @private
    */
   options : {
-      colors : ["#E2F2FF", "#C4E4FF", "#9ED2FF", "#81C5FF", "#6BBAFF", "#51AEFF", "#36A2FF", "#1E96FF", "#0089FF", "#0061B5"],
-      cloudsSelector : '#clouds',
-      zoomSelector : '#zoom',
-      resetSelector : '#reset',
-      factSelector : '#fact-selector',
-      factCubesIntro : 'Cubes available:',
-      factMeasuresIntro : 'Measures available:'
+    colors : ["#E2F2FF", "#C4E4FF", "#9ED2FF", "#81C5FF", "#6BBAFF", "#51AEFF", "#36A2FF", "#1E96FF", "#0089FF", "#0061B5"],
+    cloudsSelector : '#clouds',
+    zoomSelector : '#zoom',
+    resetSelector : '#reset',
+    factSelector : '#fact-selector',
+    factCubesIntro : 'Cubes available:',
+    factMeasuresIntro : 'Measures available:'
   },
 
   /**
@@ -91,7 +91,6 @@ var Display = {
    * @private
    */
   dataCrossfilter : null,
-
 
   /**
    * Callback function to call when changing the cube and measure to display
@@ -303,7 +302,36 @@ var Display = {
   },
 
   /**
+   * Get the number of crossed members that is to say the number of possible combinations of members
+   *
+   * @private
+   * @return {int} number of combinations
+   *
+   */
+  numberOfCrossedMembers: function () {
+    var nb = 1;
+    for (var dimension in this.dimensions) {
+      var slice = this.getSliceFromStack(dimension);
+      nb *= Object.keys(slice.members).length
+    }
+    return nb;
+  },
+
+  /**
+   * Indicate if we should use client or server side aggregates.
+   *
+   * @private
+   * @return {boolean} true if client side, false if server side
+   *
+   */
+  isClientSideAggrPossible : function () {
+    return this.numberOfCrossedMembers() < 20000;
+  },
+
+  /**
    * Reset the stack
+   *
+   * @private
    */
   resetStack : function () {
 
@@ -366,8 +394,10 @@ var Display = {
         this.dimensions[dimension].crossfilter = undefined;
       }
     }
-
-    this.dataCrossfilter = crossfilter(data);
+    if (this.isClientSideAggrPossible())
+      this.dataCrossfilter = crossfilter(data);
+    else
+      this.dataCrossfilter = crossfilterServer(data);
 
     return this.dataCrossfilter;
   },
@@ -628,28 +658,72 @@ var Display = {
    */
   getData : function () {
     try {
-      // set cube & measure
-      Query.clear();
-      Query.drill(this.cube);
-      Query.push(this.measure);
-
-      // Select first data
-      var dimensionsList = this.getDimensions();
-      for (var i in dimensionsList) {
-        var dimension = dimensionsList[i];
-        var slice = this.getSliceFromStack(dimension);
-        Query.slice(this.getDimensionHierarchy(dimension), Object.keys(slice.members));
-      }
-
-      var data = Query.execute();
-
-      return this.setCrossfilterData(data);
+      if (this.isClientSideAggrPossible())
+        return this.getDataClientAgregates();
+      else
+        return this.getDataServerAgregates();
     } catch(err) {
       new PNotify({
         title: 'An error occured',
         text: err.message
       });
     }
+  },
+
+  /**
+   * Get the data for client side agregates
+   *
+   * @private
+   * @return {Object} crossfilter dataset
+   */
+  getDataClientAgregates : function () {
+    // set cube & measure
+    Query.clear();
+    Query.drill(this.cube);
+    Query.push(this.measure);
+
+    // Select first data
+    var dimensionsList = this.getDimensions();
+    var hierachiesList = [];
+    for (var i in dimensionsList) {
+      var dimension = dimensionsList[i];
+      var slice = this.getSliceFromStack(dimension);
+      var hierarchy = this.getDimensionHierarchy(dimension);
+      hierachiesList.push(hierarchy);
+      Query.slice(hierarchy, Object.keys(slice.members));
+    }
+    Query.dice(hierachiesList);
+
+    var data = Query.execute();
+
+    return this.setCrossfilterData(data);
+  },
+
+  /**
+   * Get the data for client side agregates
+   *
+   * @private
+   * @return {Object} crossfilter dataset
+   */
+  getDataServerAgregates : function () {
+    var metadata = {
+      "api" : Query,
+      "schema" : this.schema,
+      "cube" : this.cube,
+      "measure" : this.measure,
+      "dimensions" : {}
+    };
+
+    for (var dimension in this.dimensions) {
+      var slice = this.getSliceFromStack(dimension);
+      metadata.dimensions[dimension] = {
+        "hierarchy" : this.getDimensionHierarchy(dimension),
+        "level" : slice.level,
+        "members" : Object.keys(slice.members)
+      };
+    }
+
+    return this.setCrossfilterData(metadata);
   },
 
   /**
@@ -881,6 +955,8 @@ var Display = {
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
 
     var format = d3.format(".3s");
+
+
 
     this.charts[chart].element
       .dimension(crossfilterDimAndGroup.dimension)

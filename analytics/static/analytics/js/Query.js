@@ -738,6 +738,17 @@ var Query = {
   },
 
   /**
+   * Add dice behavior to a list of hierarchies, that is to say those hierarchies
+   * won't be completely aggregated.
+   *
+   * @public
+   * @param {Array<String>} hierarchies
+   */
+  dice : function (hierarchies) {
+    this.queryAPI.dice(hierarchies);
+  },
+
+  /**
    * Remove the given hierarchy of the selected agregates
    *
    * @public

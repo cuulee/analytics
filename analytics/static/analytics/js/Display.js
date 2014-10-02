@@ -1000,58 +1000,51 @@ var Display = {
       var height = $(this.charts[chart].selector).height();
 
       this.charts[chart].element = dc.barChart(this.charts[chart].selector)
-        //.ordering(function (d) { return d.value; })
         .width(width)
         .height(height)
-       // .x(d3.scale.linear().domain([1,1000]))
-//	.x(this.charts[chart].dimensions[0])
-	//.barPadding(0.5)
-	//.elasticY(true)
-	.x(d3.scale.ordinal().domain(function (d) {return this.getSliceFromStack(this.charts[chart].dimensions[0]).members[d.key].caption;}))//function (d) { return metadata.members[d.key].caption; }))//["SEM","OTHERS","SEO", "CSE","ORGANIC","MOBILEWEB", "AFFILIATES","EMAIL", "DISPLAYADS"]))
-        //.margins({top: 10, right: 100, bottom: 70, left:80})
-        //.gap(20)
-	//.brushOn(false)
-        .yAxisLabel("This is the Y Axis!")
-        //.dimension(runDimension)
-        //.group(speedSumGroup)
+        .margins({top: 10, right: 10, bottom: 125, left: 40})
+	.renderlet(function (chart) {
+                    chart.selectAll("g.x text")
+                      .attr('dx', '-50')
+                      .attr('transform', "translate(-20,0)")
+                      .attr('transform', "rotate(-50)");
+                })
+	.transitionDuration(500)
+        .centerBar(false)
+        .gap(1)
+	.elasticY(true)
+	.elasticX(true)
     
-	
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
 	
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; });
-        console.log(this.getSliceFromStack(this.charts[chart].dimensions[0]).members);
-	var tab = [function(d){
-            var key = d.key ? d.key : d.data.key;
-            if (metadata.members[key] === undefined) {
-              return key;
-            }
-	    else{
-	      console.log(metadata.members[key].caption);	
-              return metadata.members[key].caption;
-        	} 
-	 }];
-	console.log(tab);
       }
 
-
+    // get data
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
 
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
-
+    
+    // We consider that the keys are sortable data
+    var keys = d3.keys(metadata.members).sort();	
+    var elementsX = d3.scale.ordinal().domain(keys);
     var format = d3.format(".3s");
-
+    
     this.charts[chart].element
+      .x(elementsX)
+      .xUnits(dc.units.ordinal)
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
-      .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
-      .label(function (d) { return metadata.members[d.key].caption; })
+     // .colorDomain(this.niceDomain(crossfilterDimAndGroup.group));
+     // .label(function (d) { return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
         return metadata.members[key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
       });
-      
+    this.charts[chart].element.xAxis().tickFormat(function(d) {return metadata.members[d].caption;});
+    this.charts[chart].element.yAxis().tickFormat(function(d) { return format(d);});
   },
 
   /**
@@ -1099,7 +1092,6 @@ var Display = {
     // We consider that the keys are sortable data (and yes it will be strings of time)
     var keys = d3.keys(metadata.members).sort();
     var scale = d3.scale.ordinal().domain(keys);
-
     this.charts[chart].element
       .x(scale)
       .xUnits(dc.units.ordinal)

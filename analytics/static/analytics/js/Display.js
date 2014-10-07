@@ -742,6 +742,8 @@ var Display = {
 
     for (var chart in this.charts) {
       this.displayChart(chart);
+      if (init === true)
+        this.displayParams(chart);
     }
 
     this.setFilters();
@@ -790,6 +792,40 @@ var Display = {
         break;
 
     }
+  },
+
+  /**
+   * Display and configure the params tool
+   * @param  {String} chart id of the chart of which we want to display params tool
+   * @private
+   * @todo Update the content of the modal form to put real values in the fields and preselect current values
+   */
+  displayParams : function(chart) {
+    var that = this;
+    var el = $(this.charts[chart].selector).append('<a href="#chartparams" class="btn btn-xs btn-default" data-toggle="modal"><i class="fa fa-nomargin fa-cogs"></i></a>');
+    el.click(function() {
+      $('#chartparams-set').unbind('click').click(function() {
+        $('#chartparams').modal('hide');
+
+        var options = {};
+        options.dimension = $('#chartparam-dimension').val();
+        options.sort      = $('#chartparam-sort').val();
+        options.type      = $('#chartparam-type').val();
+
+        that.updateChart(chart, options);
+      });
+    });
+  },
+
+  /**
+   * Update the configuration of a chart
+   * @param  {String} chart   Chart id
+   * @param  {Object} options New config
+   * @todo implement code actually process something
+   */
+  updateChart : function (chart, options) {
+    console.log("update", chart, options);
+    // do what we need here to update the options of the chart
   },
 
   /**

@@ -1,0 +1,50 @@
+{% load i18n %}
+
+<div class="modal fade" id="chartparams" style="display:none;">
+  <div class="modal-dialog modal-content">
+    <div class="modal-header">
+      <a class="close" data-dismiss="modal">×</a>
+      <h3>{% trans "Chart parameters" %}</h3>
+    </div>
+    <div class="modal-body"><!--id="permissions-body"-->
+      <div class="control-group">
+        <label class="control-label"><strong>{% trans "Dimension" %}:</strong></label>
+        <div class="controls">
+          <select id="chartparam-dimension">
+            <option value="geo">Geo</option>
+            <option value="time">Time</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label"><strong>{% trans "Sort by" %}:</strong></label>
+        <div class="controls">
+          <select id="chartparam-sort">
+            <option value="key">Alphabetical order</option>
+            <option value="valuedesc">Value (desc)</option>
+            <option value="valueasc">Value (asc)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label"><strong>{% trans "Type" %}:</strong></label>
+        <div class="controls">
+          <select id="chartparam-type">
+            <option value="map">Chropleth map</option>
+            <option value="pie">Pie chart</option>
+            <option value="bar">Bar chart</option>
+            <option value="table">Table</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <a href="#" class="btn btn-default" data-dismiss="modal">{% trans "Cancel" %}</a>
+      <a href="#" class="btn btn-primary" id="chartparams-set">{% trans "Update chart" %}</a>
+    </div>
+
+  </div>
+</div>

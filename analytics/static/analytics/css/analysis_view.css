@@ -80,6 +80,10 @@ div.dc-chart {
 	display: block;
 }
 
+.fa-nomargin {
+	margin: 0;
+}
+
 /*** LEFT ***/
 
 .wordcloud-title {

@@ -5,7 +5,10 @@ Analytics
 Installation
 ------------
 
-First, you need to install Geonode in the development version 2.4 following the instructions [here](https://github.com/GeoNode/geonode).
+To use this application, you need some geo-business intelligence data in a postgreSQL database, and a
+GeoMondrian installed. To install GeoMondrian, yu can follow [this](https://github.com/loganalysis/analytics/wiki/GeoMondrian) guide.
+
+Then, you need to install Geonode in the development version 2.4 following the instructions [here](https://github.com/GeoNode/geonode).
 Don't install the package, it is not the 2.4 version.
 
 Once Geonode is installed, you need to install the [solap4py-java](https://github.com/loganalysis/solap4py-java) component and

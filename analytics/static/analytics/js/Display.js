@@ -801,12 +801,15 @@ var Display = {
       $(this.options.cloudsSelector).append('<div class="wordcloud">'+
           '<div class="wordcloud-title">'+this.getDimensionCaption(dimension)+'</div>'+
           '<div class="wordcloud-chart" id="'+chart+'"></div>'+
+          '<div class="wordcloud-legend" id="'+chart+'-legend"></div>'+
         '</div>');
 
       this.charts[chart].element = dc.wordCloudChart(this.charts[chart].selector)
 
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d ? that.charts[chart].element.colors()(d) : '#ccc'; })
+
+        .showLegend('#'+chart+'-legend')
 
         .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
         .callbackZoomOut(function () { that.rollUp(dimension); })
@@ -870,8 +873,6 @@ var Display = {
         .setNbZoomLevels(this.charts[chart].options.nbLevels)
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
-
-        .showLegend('#legend');
 
         d3.select(this.options.zoomSelector).append("a")
             .attr("class","btn btn-primary fa fa-search-plus")

@@ -617,16 +617,14 @@ var Display = {
         // instanciate wordclouds (1 per dimension except time)
         var i = 0;
         for (var dimension in dimensions) {
-          if (dimension != timeDimension) {
-            this.charts["wordcloud"+i] = {
-              'selector' : '#wordcloud'+i,
-              'type' : 'wordcloud',
-              'element' : undefined,
-              'dimensions' : [dimension],
-              'options' : {}
-            };
-            i++;
-          }
+          this.charts["wordcloud"+i] = {
+            'selector' : '#wordcloud'+i,
+            'type' : 'wordcloud',
+            'element' : undefined,
+            'dimensions' : [dimension],
+            'options' : {}
+          };
+          i++;
         }
       }
     } catch(err) {

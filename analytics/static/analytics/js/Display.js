@@ -55,14 +55,14 @@ var Display = {
       'options' : {}
     },
     'rightChart' : {
-      'selector' : '#rightChart',
+      'selector' : '#rightChart1',
       'type' : 'pie',
       'element' : undefined,
       'dimensions' : [],
       'options' : {}
     },
     'barChart' : {
-      'selector' : '#barChart',
+      'selector' : '#rightChart2',
       'type' : 'bar',
       'element' : undefined,
       'dimensions' : [],

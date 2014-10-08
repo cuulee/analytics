@@ -42,6 +42,7 @@ html, body {
 	height: 100%;
 	max-height: 100%;
 	overflow: hidden;
+	background: #FDFDFD;
 }
 
 #left-pane {
@@ -50,7 +51,8 @@ html, body {
 	top:100px;
 	bottom:0;
 	width:25%;
-	overflow: auto;
+	overflow-x: hidden;
+	overflow-y: auto;
 	background: #F7FDFF;
 }
 
@@ -60,7 +62,8 @@ html, body {
 	top:100px;
 	bottom:0;
 	width:50%;
-	overflow: auto;
+	overflow-x: hidden;
+	overflow-y: auto;
 	box-shadow: inset 0px 0px 6px rgba(0,0,0,0.25);
 }
 
@@ -70,7 +73,8 @@ html, body {
 	top:100px;
 	bottom:0;
 	width:25%;
-	overflow: auto;
+	overflow-x: hidden;
+	overflow-y: auto;
 	background: #F7FDFF;
 }
 
@@ -89,7 +93,6 @@ div.dc-chart {
 	margin: 0;
 }
 
-/*** LEFT ***/
 
 .wordcloud-title {
 	display: block;
@@ -97,8 +100,6 @@ div.dc-chart {
 	margin: 15px 0 10px;
 	text-align: center;
 }
-
-/*** MIDDLE ***/
 
 #map {
 	width: 100%;
@@ -149,16 +150,8 @@ div.dc-chart {
 	height: 29.5%;
 }
 
-/*** RIGHT ***/
-
-#rightChart {
-	height: 40%;
-	margin: 15px 0;
-	min-height: 250px;
-}
-
-#barChart {
-	height: 40%;
+#rightChart1, #rightChart2 {
+	height: 44%;
 	margin: 15px 0;
 	min-height: 250px;
 }
@@ -167,8 +160,8 @@ div.dc-chart {
 	border-collapse: collapse;
 	background: #EEE;
 	border-spacing: 0;
-	width: 80%;
-	margin: 0 auto;
+	width: 55%;
+	margin: 20px auto 0;
 }
 
 #table th, #table table td {

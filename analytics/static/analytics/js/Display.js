@@ -85,7 +85,7 @@ var Display = {
   options : {
     colors : ["#E2F2FF", "#C4E4FF", "#9ED2FF", "#81C5FF", "#6BBAFF", "#51AEFF", "#36A2FF", "#1E96FF", "#0089FF", "#0061B5"],
     cloudsSelector : '#clouds',
-    zoomSelector : '#zoom',
+    zoomId : 'zoom',
     resetSelector : '#reset',
     factSelector : '#fact-selector',
     factCubesIntro : 'Cubes available:',
@@ -750,8 +750,6 @@ var Display = {
 
     for (var chart in this.charts) {
       this.displayChart(chart);
-      if (init === true)
-        this.displayParams(chart);
     }
 
     this.setFilters();
@@ -923,6 +921,8 @@ var Display = {
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
 
+      this.displayParams(chart);
+
       this.charts[chart].element = dc.geoChoroplethChart(this.charts[chart].selector)
         .width(width)
         .height(height)
@@ -939,14 +939,17 @@ var Display = {
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
 
-        d3.select(this.options.zoomSelector).append("a")
-            .attr("class","btn btn-primary fa fa-search-plus")
-            .attr("href","#")
-            .on("click", function () { that.charts[chart].element.addScale(1.35, 700); return false; });
-        d3.select(this.options.zoomSelector).append("a")
-            .attr("class","btn btn-primary fa fa-search-minus")
-            .attr("href","#")
-            .on("click", function () { that.charts[chart].element.addScale(1/1.35, 700); return false; });
+        var div = d3.select(this.charts[chart].selector).append("div")
+          .attr("id", this.options.zoomId);
+
+        div.append("a")
+          .attr("class","btn btn-primary fa fa-search-plus")
+          .attr("href","#")
+          .on("click", function () { that.charts[chart].element.addScale(1.35, 700); return false; });
+        div.append("a")
+          .attr("class","btn btn-primary fa fa-search-minus")
+          .attr("href","#")
+          .on("click", function () { that.charts[chart].element.addScale(1/1.35, 700); return false; });
     }
 
     /// update layers
@@ -1001,6 +1004,8 @@ var Display = {
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
 
+      this.displayParams(chart);
+
       this.charts[chart].element = dc.pieChart(this.charts[chart].selector)
         .ordering(function (d) { return d.value; })
         .width(width)
@@ -1051,6 +1056,7 @@ var Display = {
     var metadata = this.getSliceFromStack(dimension);
 
     if (this.charts[chart].element === undefined) {
+      this.displayParams(chart);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
@@ -1171,6 +1177,8 @@ var Display = {
     if (this.charts[chart].element === undefined) {
       d3.select(this.charts[chart].selector).html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
       this.charts[chart].element = dc.dataTable(this.charts[chart].selector);
+
+      this.displayParams(chart);
     }
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
@@ -1273,22 +1281,7 @@ var Display = {
             break;
 
           case "map":
-            this.charts[chart].element
-              .width(width)
-              .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
-            break;
-
-          // timeline will take the remaining space in it's container
           case "timeline":
-            var domEl = $(this.charts[chart].selector);
-            domEl.css('height', 'auto'); // remove css
-            height = domEl.parent().height() - 10; // future height
-            domEl.parent().children().each(function () {
-              if (!$(this).is(domEl)) height -= $(this).height(); // remote siblings height
-            });
             this.charts[chart].element
               .width(width)
               .height(height);
@@ -1332,11 +1325,7 @@ var Display = {
     this.displayCharts(true);
     this.initResize();
 
-    d3.select(this.options.resetSelector).append("a")
-        .attr("class","btn btn-primary fa fa-refresh")
-        .attr("href","#")
-        .text(" Reset Filters")
-        .on("click", function () {
+    d3.select(this.options.resetSelector).on("click", function () {
           dc.filterAll();
           dc.redrawAll();
           return false;
@@ -1500,8 +1489,8 @@ var Display = {
    *
    * - resetSelector (#reset) : reset filters button selector
    * - cloudsSelector (#cloud) : list of word clouds CSS selector
-   * - zoomSelector (#zoom) : zoom buttons for map CSS selector
    * - factSelector (#facts) : facts selector CSS selector
+   * - zoomId (zoom) : zoom buttons for map CSS selector
    * - factCubesIntro (Cubes available:) : Introduction of the list of cubes
    * - factMeasuresIntro (Measures available:) : Introdcution of the list of measures
    *
@@ -1518,7 +1507,7 @@ var Display = {
     this.options.colors            = options.colors            || this.options.colors;
     this.options.resetSelector     = options.resetSelector     || this.options.resetSelector;
     this.options.cloudsSelector    = options.cloudsSelector    || this.options.cloudsSelector;
-    this.options.zoomSelector      = options.zoomSelector      || this.options.zoomSelector;
+    this.options.zoomId            = options.zoomId            || this.options.zoomId;
     this.options.factSelector      = options.factSelector      || this.options.factSelector;
     this.options.factCubesIntro    = options.factCubesIntro    || this.options.factCubesIntro;
     this.options.factMeasuresIntro = options.factMeasuresIntro || this.options.factMeasuresIntro;

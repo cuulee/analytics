@@ -78,10 +78,23 @@ html, body {
 	background: #F7FDFF;
 }
 
+#reset {
+	position: absolute;
+	top: 7px;
+	right: 0;
+}
+
 /***** CHARTS *****/
 
 div.dc-chart {
 	float: none;
+	position: relative;
+}
+
+.btn-params {
+	position: absolute;
+	top: 5px;
+	right: 5px;
 }
 
 .chart-columns svg {
@@ -103,51 +116,22 @@ div.dc-chart {
 
 #map {
 	width: 100%;
-	height : 65%;
+	height : 70%;
 }
 
 #map svg {
 	float: left;
 }
 
-#map-utils {
-	width: 100%;
-	height: 46px;
-}
-
-#legend {
-	padding-left: 10px;
-}
-
-#legend table {
-	width: 100%;
-	font-size: 90%;
-}
-
-#reset {
-	margin-right: 7px;
-}
-
-#map-utils {
-	width: 100%;
-}
-
-#map-utils .buttons {
-	width: 230px;
-	text-align: right;
-	vertical-align: top;
-	padding-top: 4px;
-}
-
-#map-utils .buttons a {
-	margin-right: 3px;
-	color: #FFF;
-	font-weight: normal;
+#zoom {
+	position: absolute;
+	right: 0;
+	bottom: 5px;
 }
 
 #timeline {
 	width: 100%;
-	height: 29.5%;
+	height: 30%;
 }
 
 #rightChart1, #rightChart2 {

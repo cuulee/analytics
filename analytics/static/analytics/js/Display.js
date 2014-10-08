@@ -604,6 +604,9 @@ var Display = {
         var geoLevels = Query.getLevels(this.schema, this.cube, geoDimension, geoHierarchy);
         var geoProperty = Query.getGeoProperty(this.schema, this.cube, geoDimension, geoHierarchy);
 
+        // Empty the dimension selector
+        $('#chartparam-dimension').empty();
+
         // slice all dimensions (because they are all used in charts)
         var dimensions = Query.getDimensions(this.schema, this.cube);
         for (var dimension in dimensions) {
@@ -613,6 +616,9 @@ var Display = {
           var members  = Query.getMembers(this.schema, this.cube, dimension, hierarchy, 0, properties);
 
           this.addSliceToStack(dimension, dimensions[dimension].caption, hierarchy, 0, members, properties);
+
+          // Add dimensions to the select in the chartparams form
+          $('#chartparam-dimension').append('<option value="'+dimension+'">'+this.getDimensionCaption(dimension)+'</option>');
         }
 
         // init charts
@@ -806,6 +812,7 @@ var Display = {
     var that = this;
     var el = $(this.charts[chart].selector).append('<a href="#chartparams" class="btn btn-xs btn-default" data-toggle="modal"><i class="fa fa-nomargin fa-cogs"></i></a>');
     el.click(function() {
+      $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
       $('#chartparams-set').unbind('click').click(function() {
         $('#chartparams').modal('hide');
 
@@ -827,6 +834,14 @@ var Display = {
    */
   updateChart : function (chart, options) {
     console.log("update", chart, options);
+
+    // Handle dimension change
+    if (this.charts[chart].dimensions.indexOf(options.dimension) < 0) {
+      this.charts[chart].dimensions = [options.dimension];
+      this.displayChart(chart);
+      this.charts[chart].element.render();
+    }
+
     // do what we need here to update the options of the chart
   },
 

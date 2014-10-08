@@ -1127,7 +1127,8 @@ var Display = {
       this.charts[chart].element = dc.barChart(this.charts[chart].selector)
         .width(width)
         .height(height)
-
+        .colors(d3.scale.quantize().range(this.options.colors))
+        .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
         .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
         .callbackZoomOut(function () { that.rollUp(dimension); })
 
@@ -1154,7 +1155,7 @@ var Display = {
 
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
-
+      .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');

@@ -18,6 +18,11 @@
 	padding: 0 0 0 15px;
 }
 
+#toolbox #fact-selector .dropdown-menu {
+	max-height: 450px;
+	overflow-x: hidden;
+}
+
 #toolbox #fact-selector > div > ul {
 	padding: 0 0 0 7px;
 	margin: 0;

@@ -114,13 +114,15 @@ var Display = {
       this.resetStack();
       this.resetWordClouds();
       this.initMetadata();
+      this.getData();
+      this.displayCharts(true);
     }
     else {
       this.setMeasure(measure);
+      this.getData();
+      this.displayCharts();
     }
 
-    this.getData();
-    this.displayCharts(true);
   },
 
   /**

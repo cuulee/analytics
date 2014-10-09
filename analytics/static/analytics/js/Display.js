@@ -600,7 +600,7 @@ var Display = {
         // get specific infos
         var geoDimension  = Query.getGeoDimension(this.schema, this.cube);
         var timeDimension = Query.getTimeDimension(this.schema, this.cube);
-        for (var geoHierarchy  in Query.getHierarchies(this.schema, this.cube, geoDimension)) break;
+        var geoHierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, geoDimension))[0];
         var geoLevels = Query.getLevels(this.schema, this.cube, geoDimension, geoHierarchy);
         var geoProperty = Query.getGeoProperty(this.schema, this.cube, geoDimension, geoHierarchy);
 
@@ -610,7 +610,7 @@ var Display = {
         // slice all dimensions (because they are all used in charts)
         var dimensions = Query.getDimensions(this.schema, this.cube);
         for (var dimension in dimensions) {
-          for (var hierarchy  in Query.getHierarchies(this.schema, this.cube, dimension)) break;
+          var hierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, dimension))[0];
           var properties = dimension == geoDimension;
           var levels = Query.getLevels(this.schema, this.cube, dimension, hierarchy);
           var members  = Query.getMembers(this.schema, this.cube, dimension, hierarchy, 0, properties);

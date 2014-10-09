@@ -732,6 +732,28 @@ var Display = {
   },
 
   /**
+   * Find out whether we can drill-down on a given dimension or not
+   *
+   * @param {string} A dimension
+   * @return {boolean} True if we can drill-down on the dimension
+   */
+  isDrillPossible : function (dimension) {
+    var hierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, dimension))[0];
+    var nbLevels = Query.getLevels(this.schema, this.cube, dimension, hierarchy).length;
+    return (this.getSliceFromStack(dimension).level + 1) !== nbLevels;
+  },
+
+  /**
+   * Find out whether we can roll-up on a given dimension or not
+   *
+   * @param {string} A dimension
+   * @return {boolean} True if we can roll-up on the dimension
+   */
+  isRollPossible : function (dimension) {
+    return this.getSliceFromStack(dimension).level > 0;
+  },
+
+  /**
    * Get the data for client side agregates
    *
    * @private
@@ -789,6 +811,8 @@ var Display = {
    */
   displayChart : function (chart) {
 
+    $(this.charts[chart].selector).addClass("dc-"+this.charts[chart].type);
+
     switch(this.charts[chart].type) {
 
       case "map":
@@ -819,6 +843,16 @@ var Display = {
   },
 
   /**
+   * Display the container for meta infos on charts
+   * @private
+   * @param  {DOMObject} DOM Object in which we will put meta infos
+   */
+  displayChartMetaContainer : function (element) {
+    console.log(element);
+    $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span>')
+  },
+
+  /**
    * Display and configure the params tool
    * @param  {String} chart id of the chart of which we want to display params tool
    * @private
@@ -826,10 +860,9 @@ var Display = {
    */
   displayParams : function(chart) {
     var that = this;
-    var el = $('<a href="#chartparams" class="btn-params btn btn-xs btn-default"><i class="fa fa-nomargin fa-cogs"></i></a>');
+    var el = $('<span class="btn-params btn btn-xs btn-default"><i class="fa fa-nomargin fa-cog"></i></span>');
 
-    $(this.charts[chart].selector).append(el);
-
+    $(this.charts[chart].selector+' .chart-meta .btn-params').replaceWith(el);
 
     el.click(function() {
 
@@ -858,6 +891,58 @@ var Display = {
         // show modal
         $('#chartparams').modal('show');
       });
+  },
+
+  displayTip : function (chart) {
+    var chartType = this.charts[chart].type;
+    if (Object.keys(this.tips).indexOf(chartType) >= 0) {
+      var el = $('<span data-toggle="tooltip" class ="chart-infos" data-placement="bottom" title="'+this.tips[this.charts[chart].type]+'">'+
+        '<i class="fa fa-nomargin fa-info-circle"></i></span>');
+
+      $(this.charts[chart].selector+' .chart-meta .chart-infos').replaceWith(el);
+      el.tooltip({'container': 'body'});
+    }
+  },
+
+  /**
+   * Display an icon whether we can drill-down or roll-up on the chart
+   * @param {string} chart Chart id
+   */
+  displayCanDrillRoll : function (chart) {
+    var dimension = this.charts[chart].dimensions[0];
+
+    var el = $(this.charts[chart].selector + ' .chart-meta .chart-levels-icons');
+    if (el.html().length == 0) {
+      el.html('<span class="fa fa-nomargin fa-caret-up"></span><span class="fa fa-nomargin fa-caret-down"></span>');
+    }
+
+    var caretDown = el.find('.fa-caret-down');
+    var caretUp = el.find('.fa-caret-up');
+
+    if (this.isRollPossible(dimension))
+      caretUp.css('color', 'inherit');
+    else
+      caretUp.css('color', '#999999');
+
+    if (this.isDrillPossible(dimension))
+      caretDown.css('color', 'inherit');
+    else
+      caretDown.css('color', '#999999');
+  },
+
+  /**
+   * Display the number of levels and the current level
+   * @param {string} chart Chart id
+   */
+  displayLevels : function (chart) {
+    var dimension = this.charts[chart].dimensions[0];
+
+    // Display the number of levels and the current level
+    var hierarchy = this.getDimensionHierarchy(dimension);
+    var nbLevels = Query.getLevels(this.schema, this.cube, dimension, hierarchy).length;
+    var currentLevel = this.getSliceFromStack(dimension).level;
+
+    $(this.charts[chart].selector + ' .chart-meta .chart-levels').html((currentLevel+1)+'/'+nbLevels);
   },
 
   /**
@@ -928,6 +1013,9 @@ var Display = {
           '<div class="wordcloud-legend" id="'+chart+'-legend"></div>'+
         '</div>');
 
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
       this.charts[chart].element = dc.wordCloudChart(this.charts[chart].selector)
 
         .colors(d3.scale.quantize().range(this.options.colors))
@@ -940,6 +1028,8 @@ var Display = {
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
+
+
 
     /// display data
     var format = d3.format(".3s");
@@ -978,11 +1068,14 @@ var Display = {
 
     /// create element if needed
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
 
       this.displayParams(chart);
+      this.displayTip(chart);
 
       this.charts[chart].element = dc.geoChoroplethChart(this.charts[chart].selector)
         .width(width)
@@ -1032,6 +1125,9 @@ var Display = {
       return d.id;
     });
 
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
+
     /// display data
     var format = d3.format(".3s");
 
@@ -1066,11 +1162,14 @@ var Display = {
     var metadata = this.getSliceFromStack(dimension);
 
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
 
       this.displayParams(chart);
+      this.displayTip(chart);
 
       this.charts[chart].element = dc.pieChart(this.charts[chart].selector)
         .ordering(function (d) { return d.value; })
@@ -1085,8 +1184,10 @@ var Display = {
 
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; });
-
     }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
 
     var format = d3.format(".3s");
 
@@ -1119,7 +1220,12 @@ var Display = {
     var metadata = this.getSliceFromStack(dimension);
 
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+
       this.displayParams(chart);
+      this.displayTip(chart);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
@@ -1149,6 +1255,9 @@ var Display = {
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
       }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
 
     // We consider that the keys are sortable data
     var keys = d3.keys(metadata.members).sort();
@@ -1187,6 +1296,10 @@ var Display = {
 
     /// display element if needed
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+      this.displayTip(chart);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
@@ -1247,7 +1360,11 @@ var Display = {
     var dimension = this.charts[chart].dimensions[0];
 
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
       this.displayParams(chart);
+      this.displayTip(chart);
 
       d3.select(this.charts[chart].selector).attr('class', 'dc-chart');
       d3.select(this.charts[chart].selector).append('table');

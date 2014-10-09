@@ -91,10 +91,37 @@ div.dc-chart {
 	position: relative;
 }
 
-.btn-params {
+.empty-chart {
+	display: none;
+}
+
+.chart-meta {
 	position: absolute;
 	top: 5px;
 	right: 5px;
+}
+
+.chart-meta > span {
+	margin-left: 7px;
+}
+
+.chart-meta .chart-levels-icons {
+	position: relative;
+	display: inline-block;
+	width: 4px;
+}
+
+.chart-meta .chart-levels-icons span {
+	position: absolute;
+	left: 0;
+}
+
+.chart-meta .chart-levels-icons .fa-caret-up {
+	bottom: 3px;
+}
+
+.chart-meta .chart-levels-icons .fa-caret-down {
+	bottom: -5px;
 }
 
 .chart-columns svg {
@@ -204,8 +231,4 @@ table.dc-chart .dc-table-group {
 	cursor: ew-resize;
 	margin-left: -3px;
 	z-index: 2;
-}
-
-.empty-chart {
-	display: none;
 }

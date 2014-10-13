@@ -861,10 +861,19 @@ var Display = {
 
     // Chart type change
     if (this.charts[chart].type != options.type) {
-      delete this.charts[chart].element;
-      this.charts[chart].type = options.type;
-      $(this.charts[chart].selector).empty();
-      updateDisplay = true;
+      // if map and non-geo dim => do not change chart type
+      if (options.type == "map" && this.charts[chart].dimensions[0] != Query.getGeoDimension(this.schema, this.cube)) {
+        new PNotify({
+          'title' : 'Impossible to use a map chart',
+          'text': 'Map can only show geographical dimensions'
+        });
+      }
+      else {
+        delete this.charts[chart].element;
+        this.charts[chart].type = options.type;
+        $(this.charts[chart].selector).empty();
+        updateDisplay = true;
+      }
     }
 
     // Sort order change

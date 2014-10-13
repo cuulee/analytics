@@ -616,9 +616,6 @@ var Display = {
           var members  = Query.getMembers(this.schema, this.cube, dimension, hierarchy, 0, properties);
 
           this.addSliceToStack(dimension, dimensions[dimension].caption, hierarchy, 0, members, properties);
-
-          // Add dimensions to the select in the chartparams form
-          $('#chartparam-dimension').append('<option value="'+dimension+'">'+this.getDimensionCaption(dimension)+'</option>');
         }
 
         // init charts
@@ -812,7 +809,14 @@ var Display = {
 
     $(this.charts[chart].selector).append(el);
 
+
     el.click(function() {
+
+        // Add dimensions to the select in the chartparams form
+        $('#chartparam-dimension').empty();
+        for (var dimension in that.dimensions) {
+          $('#chartparam-dimension').append('<option value="'+dimension+'">'+that.getDimensionCaption(dimension)+'</option>');
+        }
 
         // autoset infos
         $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);

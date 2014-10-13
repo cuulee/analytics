@@ -833,14 +833,30 @@ var Display = {
   updateChart : function (chart, options) {
     console.log("update", chart, options);
 
-    // Handle dimension change
+    var updateDisplay = false;
+
+    // Dimension change
     if (this.charts[chart].dimensions.indexOf(options.dimension) < 0) {
       this.charts[chart].dimensions = [options.dimension];
+      updateDisplay = true;
+    }
+
+    // Chart type change
+    if (this.charts[chart].type != options.type) {
+      delete this.charts[chart].element;
+      this.charts[chart].type = options.type;
+      $(this.charts[chart].selector).empty();
+      updateDisplay = true;
+    }
+
+    // Sort order change
+    // TODO
+
+    // Update display
+    if (updateDisplay) {
       this.displayChart(chart);
       this.charts[chart].element.render();
     }
-
-    // do what we need here to update the options of the chart
   },
 
   /**

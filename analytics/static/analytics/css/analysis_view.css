@@ -163,7 +163,7 @@ div.dc-chart {
 	padding: 4px 7px;
 }
 
-#table tr.odd td {
+#table tr:nth-child(odd) td {
 	background: #E6E6E6;
 }
 

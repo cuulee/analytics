@@ -808,20 +808,31 @@ var Display = {
    */
   displayParams : function(chart) {
     var that = this;
-    var el = $(this.charts[chart].selector).append('<a href="#chartparams" class="btn btn-xs btn-default" data-toggle="modal"><i class="fa fa-nomargin fa-cogs"></i></a>');
+    var el = $('<a href="#chartparams" class="btn-params btn btn-xs btn-default"><i class="fa fa-nomargin fa-cogs"></i></a>');
+
+    $(this.charts[chart].selector).append(el);
+
     el.click(function() {
-      $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
-      $('#chartparams-set').unbind('click').click(function() {
-        $('#chartparams').modal('hide');
 
-        var options = {};
-        options.dimension = $('#chartparam-dimension').val();
-        options.sort      = $('#chartparam-sort').val();
-        options.type      = $('#chartparam-type').val();
+        // autoset infos
+        $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
+        $('#chartparam-type').val(that.charts[chart].type);
 
-        that.updateChart(chart, options);
+        // set callback for save
+        $('#chartparams-set').unbind('click').click(function() {
+          $('#chartparams').modal('hide');
+
+          var options = {};
+          options.dimension = $('#chartparam-dimension').val();
+          options.sort      = $('#chartparam-sort').val();
+          options.type      = $('#chartparam-type').val();
+
+          that.updateChart(chart, options);
+        });
+
+        // show modal
+        $('#chartparams').modal('show');
       });
-    });
   },
 
   /**
@@ -1196,10 +1207,13 @@ var Display = {
   displayTable : function (chart) {
     var that = this;
     if (this.charts[chart].element === undefined) {
-      d3.select(this.charts[chart].selector).html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
-      this.charts[chart].element = dc.dataTable(this.charts[chart].selector);
-
       this.displayParams(chart);
+
+      d3.select(this.charts[chart].selector).attr('class', 'dc-chart');
+      d3.select(this.charts[chart].selector).append('table');
+      d3.select(this.charts[chart].selector + ' table').html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
+      this.charts[chart].element = dc.dataTable(this.charts[chart].selector + ' table');
+
     }
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);

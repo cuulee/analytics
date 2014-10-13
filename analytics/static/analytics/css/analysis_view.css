@@ -106,7 +106,6 @@ div.dc-chart {
 	margin: 0;
 }
 
-
 .wordcloud-title {
 	display: block;
 	font-size: 150%;
@@ -141,41 +140,45 @@ div.dc-chart {
 }
 
 #table {
+	margin: 20px 0;
+}
+
+table.dc-chart {
+	margin: 0 auto;
 	border-collapse: collapse;
 	background: #EEE;
 	border-spacing: 0;
 	width: 55%;
-	margin: 20px auto 0;
 }
 
-#table th, #table table td {
+table.dc-chart th, table.dc-chart td {
 	padding: 10px;
 }
 
-#table th {
+table.dc-chart th {
 	background: #5B799E;
 	border-bottom: 5px solid #36485e;
 	border-right: solid 1px #475F7C;
 }
 
-#table td {
+table.dc-chart td {
 	border-right: 1px solid #FFF;
 	padding: 4px 7px;
 }
 
-#table tr:nth-child(odd) td {
+table.dc-chart tr:nth-child(odd) td {
 	background: #E6E6E6;
 }
 
-#table .selected {
+table.dc-chart .selected {
 	font-weight: bold;
 }
 
-#table .deselected {
+table.dc-chart .deselected {
 	color: #CCC;
 }
 
-#table .dc-table-group {
+table.dc-chart .dc-table-group {
 	display: none;
 }
 

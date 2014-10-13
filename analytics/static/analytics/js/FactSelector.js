@@ -140,7 +140,15 @@ var FactSelector = {
         this.displayDropdown(this.measures, function(d) { that.selectMeasure(d); });
       }
     }
-
+    else {
+      if (this.cubes.type === 'dropdown') {
+        this.showCubes(false);
+        if (this.measures.container.width() + this.cubes.container.width() > this.container.width()) {
+          this.showCubes(true);
+        }
+        this.setSelectedCube(this.cube);
+      }
+    }
   },
 
 

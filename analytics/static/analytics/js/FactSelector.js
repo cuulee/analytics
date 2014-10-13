@@ -105,10 +105,10 @@ var FactSelector = {
     this.cubes.data = this.data;
 
     if (dropdown) {
-      this.displayDropdown(this.cubes, function(d) { that.selectCube(d); })
+      this.displayDropdown(this.cubes, function(d) { that.selectCube(d); });
     }
     else {
-      this.displayButtons(this.cubes, function(d) { that.selectCube(d); })
+      this.displayButtons(this.cubes, function(d) { that.selectCube(d); });
     }
   },
 
@@ -126,7 +126,7 @@ var FactSelector = {
     this.measures.data = this.data[cubeID].measures;
 
     // display with buttons
-    this.displayButtons(this.measures, function(d) { that.selectMeasure(d); })
+    this.displayButtons(this.measures, function(d) { that.selectMeasure(d); });
 
     if (this.measures.container.width() + this.cubes.container.width() > this.container.width()) {
       if (this.cubes.type != 'dropdown') {
@@ -207,20 +207,22 @@ var FactSelector = {
 
     element.list = $('<ul '+listClass+'></ul>');
 
-    for (elID in element.data) {
+    var useCallback = function() { callback($(this).attr('data-id')); return false; };
+
+    for (var elID in element.data) {
 
       if (addLinks) {
         element.list.append(
           $('<li></li>').append(
             $('<a'+linkClass+' href="#" data-id="'+elID+'">'+element.data[elID].caption+'</a>')
-            .click(function() { callback($(this).attr('data-id')); return false; })
+            .click(useCallback)
           )
         );
       }
       else {
         element.list.append(
           $('<li '+linkClass+' data-id="'+elID+'">'+element.data[elID].caption+'</li>')
-          .click(function() { callback($(this).attr('data-id')); return false; })
+          .click(useCallback)
         );
       }
 

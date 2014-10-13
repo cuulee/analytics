@@ -572,6 +572,7 @@ var Display = {
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
         text: err.message
       });
     }
@@ -643,6 +644,7 @@ var Display = {
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
         text: err.message
       });
      }
@@ -676,6 +678,7 @@ var Display = {
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
         text: err.message
       });
     }
@@ -1403,6 +1406,7 @@ var Display = {
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
           text: err.message
       });
     }

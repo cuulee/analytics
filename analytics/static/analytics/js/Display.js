@@ -918,8 +918,8 @@ var Display = {
 
         .showLegend('#'+chart+'-legend')
 
-        .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
-        .callbackZoomOut(function () { that.rollUp(dimension); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
@@ -976,8 +976,8 @@ var Display = {
 
         .projection(d3.geo.mercator())
 
-        .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
-        .callbackZoomOut(function () { that.rollUp(dimension); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
 
         .setNbZoomLevels(this.charts[chart].options.nbLevels)
 
@@ -1112,8 +1112,8 @@ var Display = {
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
 
-        .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
-        .callbackZoomOut(function () { that.rollUp(dimension); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
 
         .margins({top: 10, right: 10, bottom: 125, left: 40})
         .renderlet(function (chart) {
@@ -1177,8 +1177,8 @@ var Display = {
         .height(height)
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
-        .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
-        .callbackZoomOut(function () { that.rollUp(dimension); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
 
         .margins({top: 10, right: 10, bottom: 20, left: 40})
         .transitionDuration(500)
@@ -1392,8 +1392,9 @@ var Display = {
    * @private
    * @param {string} dimension id of the dimension on which we want to drill down
    * @param {string} member id of the member on which we want to drill down
+   * @param {string} dcChartID id of the dc chart on which the evenement was called
    */
-  drillDown : function (dimension, member) {
+  drillDown : function (dimension, member, dcChartID) {
     try {
       var hierarchy = this.getDimensionHierarchy(dimension);
       var oldLevel = this.getDimensionCurrentLevel(dimension);
@@ -1407,6 +1408,14 @@ var Display = {
 
         // add slice to stack
         this.addSliceToStack(dimension, '', hierarchy, newLevel, newMembers, true);
+
+        var that = this;
+        this.getChartsUsingDimension(dimension).forEach(function (chart) {
+          if (that.charts[chart].element._onZoomIn !== undefined
+              && that.charts[chart].element.chartID() !== dcChartID) {
+            that.charts[chart].element._onZoomIn(member);
+          }
+        });
 
         // reset filter on charts using this dimension
         this.filterAllChartsUsingDimension(dimension);
@@ -1428,8 +1437,9 @@ var Display = {
    *
    * @private
    * @param {string} dimension id of the dimension on which we want to roll up
+   * @param {string} dcChartID id of the dc chart on which the evenement was called
    */
-  rollUp : function (dimension) {
+  rollUp : function (dimension, dcChartID) {
 
     // do not allow full projection of a dimension
     if (this.getDimensionCurrentLevel(dimension) > 0) {
@@ -1438,6 +1448,14 @@ var Display = {
 
       // reset filter on charts using this dimension
       this.filterAllChartsUsingDimension(dimension);
+
+      var that = this;
+      this.getChartsUsingDimension(dimension).forEach(function (chart) {
+        if (that.charts[chart].element._onZoomOut !== undefined
+            && that.charts[chart].element.chartID() !== dcChartID) {
+          that.charts[chart].element._onZoomOut();
+        }
+      });
 
       // regenerate all
       this.getData();

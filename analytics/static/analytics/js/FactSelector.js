@@ -11,6 +11,16 @@ var FactSelector = {
   cube : null,
 
   /**
+   * Id of the cube with a measure displayed
+   */
+  displayedCube : null,
+
+  /**
+   * Id of the measure displayed
+   */
+  measure : null,
+
+  /**
    *
    */
   cubes : [],
@@ -236,6 +246,9 @@ var FactSelector = {
     this.cube = cubeID;
     this.setSelectedElement(this.cubes, cubeID);
     this.showMeasures(cubeID);
+    if (this.cube === this.displayedCube) {
+      this.setSelectedMeasure(this.measure);
+    }
   },
 
   /**
@@ -246,6 +259,8 @@ var FactSelector = {
    */
   setSelectedMeasure : function (measureID) {
     this.setSelectedElement(this.measures, measureID);
+    this.displayedCube = this.cube;
+    this.measure = measureID;
   },
 
   /**

@@ -193,3 +193,15 @@ table.dc-chart .dc-table-group {
 #title-save {
 	width: 98%;
 }
+
+/* jQuery Resizable Columns v0.1.0 | http://dobtco.github.io/jquery-resizable-columns/ | Licensed MIT | Built Wed Apr 30 2014 14:24:25 */
+.rc-handle-container {
+	position: relative;
+}
+.rc-handle {
+	position: absolute;
+	width: 7px;
+	cursor: ew-resize;
+	margin-left: -3px;
+	z-index: 2;
+}

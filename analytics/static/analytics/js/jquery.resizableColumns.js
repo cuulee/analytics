@@ -7,9 +7,12 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
   parseWidth = function(node) {
     return parseFloat(node.style.width.replace('%', ''));
   };
-  setWidth = function(node, width) {
+  setWidth = function(node, width, left) {
     width = width.toFixed(2);
-    return node.style.width = "" + width + "%";
+    node.style.width = "" + width + "%";
+    if (left != undefined) {
+      node.style.left = "" + left + "%";
+    }
   };
   pointerX = function(e) {
     if (e.type.indexOf('touch') === 0) {
@@ -19,10 +22,10 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
   };
   ResizableColumns = (function() {
     ResizableColumns.prototype.defaults = {
-      selector: 'tr th:visible',
-      store: window.store,
+      selector: '.chart-columns',
+      store: null,
       syncHandlers: true,
-      resizeFromBody: true,
+      resizeFromBody: false,
       maxWidth: null,
       minWidth: null
     };
@@ -97,7 +100,7 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
             return;
           }
           $handle = $("<div class='rc-handle' />");
-          $handle.data('th', $(el));
+          $handle.data('.chart-columns', $(el));
           return $handle.appendTo(_this.$handleContainer);
         };
       })(this));
@@ -110,8 +113,8 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
           var $el;
           $el = $(el);
           return $el.css({
-            left: $el.data('th').outerWidth() + ($el.data('th').offset().left - _this.$handleContainer.offset().left),
-            height: _this.options.resizeFromBody ? _this.$table.height() : _this.$table.find('thead').height()
+            left: $el.data('.chart-columns').outerWidth() + ($el.data('.chart-columns').offset().left - _this.$handleContainer.offset().left),
+            height: _this.options.resizeFromBody ? _this.$table.height() : _this.$table.find('#left-pane').height()
           });
         };
       })(this));
@@ -165,13 +168,14 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
     };
 
     ResizableColumns.prototype.pointerdown = function(e) {
-      var $currentGrip, $leftColumn, $ownerDocument, $rightColumn, newWidths, startPosition, widths;
+      var $currentGrip, $leftColumn, $ownerDocument, $rightColumn, newWidths, startPosition, leftColumnIndex, widths;
       e.preventDefault();
       $ownerDocument = $(e.currentTarget.ownerDocument);
       startPosition = pointerX(e);
       $currentGrip = $(e.currentTarget);
-      $leftColumn = $currentGrip.data('th');
-      $rightColumn = this.$tableHeaders.eq(this.$tableHeaders.index($leftColumn) + 1);
+      $leftColumn = $currentGrip.data('.chart-columns');
+      leftColumnIndex = this.$tableHeaders.index($leftColumn);
+      $rightColumn = this.$tableHeaders.eq(leftColumnIndex + 1);
       widths = {
         left: parseWidth($leftColumn[0]),
         right: parseWidth($rightColumn[0])
@@ -188,7 +192,10 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
           var difference;
           difference = (pointerX(e) - startPosition) / _this.$table.width() * 100;
           setWidth($leftColumn[0], newWidths.left = _this.constrainWidth(widths.left + difference));
-          setWidth($rightColumn[0], newWidths.right = _this.constrainWidth(widths.right - difference));
+          if (leftColumnIndex == 0)
+            setWidth($rightColumn[0], newWidths.right = _this.constrainWidth(widths.right - difference), newWidths.left);
+          else
+            setWidth($rightColumn[0], newWidths.right = _this.constrainWidth(widths.right - difference));
           if (_this.options.syncHandlers != null) {
             _this.syncHandleWidths();
           }

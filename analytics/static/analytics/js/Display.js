@@ -100,6 +100,13 @@ var Display = {
   dataCrossfilter : null,
 
   /**
+   * Resizable columns object
+   *
+   * @private
+   */
+  resizableColumns : null,
+
+  /**
    * Callback function to call when changing the cube and measure to display
    *
    * @private
@@ -1371,6 +1378,12 @@ var Display = {
 
     var that = this;
     $(window).on('resizeend', function () { return that.resizeCharts(true); });
+
+    // init column resize
+    $("#columns").resizableColumns();
+    this.resizableColumns = $("#columns").data('resizableColumns');
+
+    $(window).on('column:resize:stop', function () { return that.resizeCharts(true); });
   },
 
   /**

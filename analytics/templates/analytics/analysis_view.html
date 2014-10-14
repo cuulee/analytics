@@ -36,20 +36,22 @@
         <div id="fact-selector">&nbsp;</div>
     </div>
 
-    <div class="chart-columns" id="left-pane">
-        <a id="reset" class="btn btn-primary btn-sm fa fa-refresh" href="#">  Reset Filters</a>
-        <div id="clouds"></div>
-    </div>
+    <div id="columns">
+      <div class="chart-columns" id="left-pane">
+          <a id="reset" class="btn btn-primary btn-sm fa fa-refresh" href="#">  Reset Filters</a>
+          <div id="clouds"></div>
+      </div>
 
-    <div class="chart-columns" id="middle-pane">
-        <div id="map"></div>
-        <div id="timeline"></div>
-        <div id="table"></div>
-    </div>
+      <div class="chart-columns" id="middle-pane">
+          <div id="map"></div>
+          <div id="timeline"></div>
+          <div id="table"></div>
+      </div>
 
-    <div class="chart-columns" id="right-pane">
-        <div id="rightChart1"></div>
-        <div id="rightChart2"></div>
+      <div class="chart-columns" id="right-pane">
+          <div id="rightChart1"></div>
+          <div id="rightChart2"></div>
+      </div>
     </div>
 
 {% endblock %}
@@ -68,6 +70,7 @@
 <script src="{{ STATIC_URL }}/analytics/js/Save.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/QueryAPI.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
 <script>
   Query.queryAPI = new QueryAPI();
   var headerShown = true;

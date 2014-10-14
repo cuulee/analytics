@@ -869,6 +869,7 @@ var Display = {
 
       // Chart type change
       if (this.charts[chart].type != options.type) {
+        dc.deregisterChart(this.charts[chart].element);
         delete this.charts[chart].element;
         this.charts[chart].type = options.type;
         $(this.charts[chart].selector).empty();

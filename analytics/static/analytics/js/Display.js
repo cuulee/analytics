@@ -1225,14 +1225,19 @@ var Display = {
    */
   displayTable : function (chart) {
     var that = this;
+
+    /// get data
+    var dimension = this.charts[chart].dimensions[0];
+
     if (this.charts[chart].element === undefined) {
       this.displayParams(chart);
 
       d3.select(this.charts[chart].selector).attr('class', 'dc-chart');
       d3.select(this.charts[chart].selector).append('table');
       d3.select(this.charts[chart].selector + ' table').html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
-      this.charts[chart].element = dc.dataTable(this.charts[chart].selector + ' table');
-
+      this.charts[chart].element = dc.dataTable(this.charts[chart].selector + ' table')
+        .callbackZoomIn(function(el, dcChartID) { that.drillDown(dimension, el, dcChartID); })
+        .callbackZoomOut(function (dcChartID) { that.rollUp(dimension, dcChartID); });
     }
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);

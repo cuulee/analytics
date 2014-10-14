@@ -1043,6 +1043,11 @@ var Display = {
 
     var that = this;
 
+    /// get data
+    var dimension = this.charts[chart].dimensions[0];
+    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
+    var metadata = this.getSliceFromStack(dimension);
+
     if (this.charts[chart].element === undefined) {
 
       var width = $(this.charts[chart].selector).width() - 30;
@@ -1056,6 +1061,9 @@ var Display = {
         .height(height)
         .minAngleForLabel(0.3)
 
+        .callbackZoomIn(function(el, dcChartID) { that.drillDown(dimension, el, dcChartID); })
+        .callbackZoomOut(function (dcChartID) { that.rollUp(dimension, dcChartID); })
+
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
 
         .colors(d3.scale.quantize().range(this.options.colors))
@@ -1063,13 +1071,7 @@ var Display = {
 
     }
 
-    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
-
-    var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
-
     var format = d3.format(".3s");
-
-
 
     this.charts[chart].element
       .dimension(crossfilterDimAndGroup.dimension)

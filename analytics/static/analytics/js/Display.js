@@ -657,6 +657,7 @@ var Display = {
   resetWordClouds : function() {
     for (var chart in this.charts) {
       if (this.charts[chart].type == 'wordcloud') {
+        dc.deregisterChart(this.charts[chart].element);
         delete this.charts[chart];
         $('#'+chart).parent().remove();
       }

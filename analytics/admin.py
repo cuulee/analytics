@@ -18,10 +18,14 @@
 #
 #########################################################################
 
-from analytics.models import Analysis
+from analytics.models import Analysis, ChartTip
 from django.contrib import admin
 
 class AnalysisAdmin(admin.ModelAdmin):
     pass
 
+class ChartTipAdmin(admin.ModelAdmin):
+    list_display = ('chart_type', 'message')
+
 admin.site.register(Analysis, AnalysisAdmin)
+admin.site.register(ChartTip, ChartTipAdmin)

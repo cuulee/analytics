@@ -76,6 +76,12 @@
   var headerShown = true;
   var paddingTop = null;
 
+  Display.tips = {
+    {% for tip in chart_tips %}
+      '{{ tip.chart_type }}' : '{{ tip.message|escapejs }}',
+    {% endfor %}
+  }
+
   $("#resize").click(function() {
     if (headerShown) {
       $(".navbar").hide();

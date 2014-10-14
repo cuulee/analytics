@@ -854,22 +854,21 @@ var Display = {
 
     var updateDisplay = false;
 
-    // Dimension change
-    if (this.charts[chart].dimensions.indexOf(options.dimension) < 0) {
-      this.charts[chart].dimensions = [options.dimension];
-      updateDisplay = true;
-    }
-
-    // Chart type change
-    if (this.charts[chart].type != options.type) {
-      // if map and non-geo dim => do not change chart type
-      if (options.type == "map" && this.charts[chart].dimensions[0] != Query.getGeoDimension(this.schema, this.cube)) {
-        new PNotify({
-          'title' : 'Impossible to use a map chart',
-          'text': 'Map can only show geographical dimensions'
-        });
+    if (options.type == "map" && options.dimension != Query.getGeoDimension(this.schema, this.cube)) {
+      // Check if we are trying something else than a geographical dimension on the map
+      new PNotify({
+        'title' : 'Impossible to use a map chart',
+        'text': 'Map can only show geographical dimensions'
+      });
+    } else {
+      // Dimension change
+      if (this.charts[chart].dimensions.indexOf(options.dimension) < 0) {
+        this.charts[chart].dimensions = [options.dimension];
+        updateDisplay = true;
       }
-      else {
+
+      // Chart type change
+      if (this.charts[chart].type != options.type) {
         delete this.charts[chart].element;
         this.charts[chart].type = options.type;
         $(this.charts[chart].selector).empty();

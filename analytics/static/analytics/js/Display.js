@@ -1258,7 +1258,8 @@ var Display = {
             return metadata.members[key].caption;
           },
           function(d){ return (d.value ? format(d.value) : 0); }
-         ]);
+         ])
+        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
   },
 
   /**

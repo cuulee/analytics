@@ -164,6 +164,7 @@ table.dc-chart th {
 table.dc-chart td {
 	border-right: 1px solid #FFF;
 	padding: 4px 7px;
+	cursor: pointer;
 }
 
 table.dc-chart tr:nth-child(odd) td {

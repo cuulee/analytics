@@ -5363,6 +5363,7 @@ dc.dataTable = function (parent, chartGroup) {
                 if (isDeselected(d)) baseClasses += " deselected";
                 return baseClasses;
             })
+            .on("click", _chart.onClick)
             .on("mousewheel", function (d) { _chart.onMouseWheel(d, true, true); })
             .on("DOMMouseScroll", function (d) { _chart.onMouseWheel(d, true, true); })
             .on("wheel", function (d) { _chart.onMouseWheel(d, true, true); });
@@ -9081,7 +9082,7 @@ dc.wordCloudChart = function (parent, chartGroup) {
                 return _chart.label()(d);
             })
             .attr("title", renderTitle)
-            .on("click", onClick)
+            .on("click", _chart.onClick)
             .on("mousewheel", function (d) { _chart.onMouseWheel(d); })
             .on("DOMMouseScroll", function (d) { _chart.onMouseWheel(d); }) // older versions of Firefox
             .on("wheel", function (d) { _chart.onMouseWheel(d); }); // newer versions of Firefox
@@ -9099,14 +9100,6 @@ dc.wordCloudChart = function (parent, chartGroup) {
     function getSize(d) {
         return  (d - min)    *  (MAX_SIZE - MIN_SIZE) / (max - min) + MIN_SIZE;
         //  back to 0 origin               change extent           add new offset
-    }
-
-    /**
-     * Function called when clicking on a word
-     */
-    function onClick (d) {
-        _chart.onClick(d);
-        _chart.redrawGroup();
     }
 
     /**

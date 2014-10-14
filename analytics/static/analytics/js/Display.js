@@ -977,7 +977,7 @@ var Display = {
         .projection(d3.geo.mercator())
 
         .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
-        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
+        .callbackZoomOut(function (nbLevels, chartID) { that.rollUp(dimension, chartID, nbLevels); })
 
         .setNbZoomLevels(this.charts[chart].options.nbLevels)
 
@@ -1446,24 +1446,33 @@ var Display = {
    * @private
    * @param {string} dimension id of the dimension on which we want to roll up
    * @param {string} dcChartID id of the dc chart on which the evenement was called
+   * @param {integer} nbLevels number of levels to roll up, 1 by default
    */
-  rollUp : function (dimension, dcChartID) {
+  rollUp : function (dimension, dcChartID, nbLevels) {
+
+    if (nbLevels === undefined) {
+      nbLevels = 1;
+    }
 
     // do not allow full projection of a dimension
     if (this.getDimensionCurrentLevel(dimension) > 0) {
-      // remove last slice
-      this.removeLastSliceFromStack(dimension);
+
+      for (var i = 1; i <= nbLevels; i++) {
+        // remove last slice
+        this.removeLastSliceFromStack(dimension);
+
+
+        var that = this;
+        this.getChartsUsingDimension(dimension).forEach(function (chart) {
+          if (that.charts[chart].element._onZoomOut !== undefined
+              && that.charts[chart].element.chartID() !== dcChartID) {
+            that.charts[chart].element._onZoomOut();
+          }
+        });
+      }
 
       // reset filter on charts using this dimension
       this.filterAllChartsUsingDimension(dimension);
-
-      var that = this;
-      this.getChartsUsingDimension(dimension).forEach(function (chart) {
-        if (that.charts[chart].element._onZoomOut !== undefined
-            && that.charts[chart].element.chartID() !== dcChartID) {
-          that.charts[chart].element._onZoomOut();
-        }
-      });
 
       // regenerate all
       this.getData();

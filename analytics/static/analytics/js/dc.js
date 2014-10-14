@@ -6671,7 +6671,12 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
                 return 'none';
             })
             .on('click', function (d) {
-                return _chart.onClick(d, layerIndex);
+                if (layerIndex == _geoJsons.length - 1) {
+                    return _chart.onClick(d, layerIndex);
+                } else {
+                    _chart._zoomOut(Math.max(0, _geoJsons.length - 1 - layerIndex));
+                    _chart._zoomIn(d);
+                }
             })
         if (layerIndex == _geoJsons.length - 1 && layerIndex < _nbZoomLevels) {
             paths
@@ -6853,6 +6858,11 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
     _chart._zoomIn = function (d) {
         _chart._onZoomIn(d.id);
         _chart.callbackZoomIn()(d.id);
+    };
+
+    _chart._zoomOut = function (nbLevels) {
+        _chart._onZoomOut();
+        _chart.callbackZoomOut()(nbLevels, _chart.chartID());
     };
 
     /*

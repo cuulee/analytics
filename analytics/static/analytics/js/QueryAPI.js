@@ -62,7 +62,7 @@ QueryAPI = function() {
      */
     this.push = function(measure) {
 
-        if (!(measure in onColumns)) {
+        if (onColumns.indexOf(measure) < 0) {
             onColumns.push(measure);
         }
     };

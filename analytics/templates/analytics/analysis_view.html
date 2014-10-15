@@ -100,10 +100,10 @@
       Save.save(this, Display.getState());
     });
     {% if config %}
-      Display.setState(JSON.parse({{ config|safe }}));
+      Display.setState(JSON.parse({{ config|safe|removetags:"script" }}));
     {% endif %}
   {% else %}
-    Display.setState(JSON.parse({{ analysis.data|safe }}));
+    Display.setState(JSON.parse({{ analysis.data|safe|removetags:"script" }}));
     var analysisid = {{ analysis.id }};
     $("#analysis_submit").click(function () {
       Save.save(this, Display.getState());

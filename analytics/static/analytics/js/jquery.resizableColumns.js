@@ -36,7 +36,6 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
       this.options = $.extend({}, this.defaults, options);
       this.$table = $table;
       this.setHeaders();
-      this.restoreColumnWidths();
       this.syncHandleWidths();
       $(window).on('resize.rc', ((function(_this) {
         return function() {
@@ -59,10 +58,6 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
       event = $.Event(type);
       event.originalEvent = $.extend({}, original);
       return this.$table.trigger(event, [this].concat(args || []));
-    };
-
-    ResizableColumns.prototype.getColumnId = function($el) {
-      return this.$table.data('resizable-columns-id') + '-' + $el.data('resizable-column-id');
     };
 
     ResizableColumns.prototype.setHeaders = function() {
@@ -121,29 +116,29 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
     };
 
     ResizableColumns.prototype.saveColumnWidths = function() {
-      return this.$tableHeaders.each((function(_this) {
-        return function(_, el) {
-          var $el;
-          $el = $(el);
-          if ($el.attr('data-noresize') == null) {
-            if (_this.options.store != null) {
-              return _this.options.store.set(_this.getColumnId($el), parseWidth($el[0]));
-            }
-          }
-        };
-      })(this));
+      var columnWidths = {};
+      this.$tableHeaders.each(function(_, el) {
+        var $el = $(el);
+        columnWidths[$el.attr('id')] = parseWidth($el[0]);
+      });
+      return columnWidths;
     };
 
-    ResizableColumns.prototype.restoreColumnWidths = function() {
-      return this.$tableHeaders.each((function(_this) {
-        return function(_, el) {
-          var $el, width;
-          $el = $(el);
-          if ((_this.options.store != null) && (width = _this.options.store.get(_this.getColumnId($el)))) {
-            return setWidth($el[0], width);
-          }
-        };
-      })(this));
+    ResizableColumns.prototype.restoreColumnWidths = function(columnWidths) {
+      var prevColWidth = 0;
+      var iEnd = this.$tableHeaders.length - 1;
+
+      this.$tableHeaders.each(function(i, el) {
+        var $el = $(el);
+        if (i == 0 || i == iEnd)
+          setWidth($el[0], columnWidths[$el.attr("id")]);
+        else
+          setWidth($el[0], columnWidths[$el.attr("id")], prevColWidth);
+
+        prevColWidth = columnWidths[$el.attr("id")];
+      });
+
+      this.syncHandleWidths();
     };
 
     ResizableColumns.prototype.totalColumnWidths = function() {

@@ -1383,6 +1383,12 @@ var Display = {
     $("#columns").resizableColumns();
     this.resizableColumns = $("#columns").data('resizableColumns');
 
+    // restore columns widths
+    if (typeof this.options.columnWidths != "undefined") {
+      this.resizableColumns.restoreColumnWidths(this.options.columnWidths);
+      delete this.options.columnWidths;
+    }
+
     $(window).on('column:resize:stop', function () { return that.resizeCharts(true); });
   },
 
@@ -1394,9 +1400,9 @@ var Display = {
 
     this.initMeasure();
     this.initMetadata();
+    this.initResize();
     this.getData();
     this.displayCharts(true);
-    this.initResize();
 
     d3.select(this.options.resetSelector).on("click", function () {
           dc.filterAll();
@@ -1505,6 +1511,7 @@ var Display = {
     this.schema = state.schema;
     this.cube = state.cube;
     this.measure = state.measure;
+    this.options.columnWidths = state.columnWidths;
 
     // list charts
     for (var chartID in state.charts) {
@@ -1552,6 +1559,7 @@ var Display = {
       "cube": this.cube,
       "measure": this.measure,
       "charts" : {},
+      "columnWidths" : this.resizableColumns.saveColumnWidths(),
       "dimensions" : {}
     };
 

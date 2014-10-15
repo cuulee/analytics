@@ -78,7 +78,7 @@
 
   Display.tips = {
     {% for tip in chart_tips %}
-      '{{ tip.chart_type }}' : '{{ tip.message|escapejs }}',
+      '{{ tip.chart_type }}' : '{{ tip.message|linebreaksbr }}',
     {% endfor %}
   }
 

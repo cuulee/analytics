@@ -897,7 +897,7 @@ var Display = {
         '<i class="fa fa-nomargin fa-info-circle"></i></span>');
 
       $(this.charts[chart].selector+' .chart-meta .chart-infos').replaceWith(el);
-      el.tooltip({'container': 'body'});
+      el.tooltip({'container': 'body', 'html': true});
     }
   },
 

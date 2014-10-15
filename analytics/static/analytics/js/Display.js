@@ -622,9 +622,6 @@ var Display = {
         var geoLevels = Query.getLevels(this.schema, this.cube, geoDimension, geoHierarchy);
         var geoProperty = Query.getGeoProperty(this.schema, this.cube, geoDimension, geoHierarchy);
 
-        // Empty the dimension selector
-        $('#chartparam-dimension').empty();
-
         // slice all dimensions (because they are all used in charts)
         var dimensions = Query.getDimensions(this.schema, this.cube);
         for (var dimension in dimensions) {

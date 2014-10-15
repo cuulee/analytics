@@ -24,10 +24,10 @@
         <div class="pull-right">
 
             {% if not analysis %}
-                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis" %}</a>
+                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis" %}</a>
             {% else %}
-                <a id="analysis-update" class="btn btn-primary">{% trans "Save Analysis" %}</a>
-                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis as" %}</a>
+                <a id="analysis-update" class="btn btn-primary" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis" %}</a>
+                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis as" %}</a>
             {% endif %}
 
             <a id="resize" class="btn btn-default fa fa-arrows-v"></a>

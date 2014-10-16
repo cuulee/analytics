@@ -1200,10 +1200,17 @@ var Display = {
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
-    var spatialData = this.transformSpatialMetadata(metadata.members, this.charts[chart].options.geoProperty);
 
     /// create element if needed
     if (this.charts[chart].element === undefined) {
+
+      var geoHierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, dimension))[0];
+      var geoLevels = Query.getLevels(this.schema, this.cube, dimension, geoHierarchy);
+      var geoProperty = Query.getGeoProperty(this.schema, this.cube, dimension, geoHierarchy);
+
+      this.charts[chart].options.geoProperty = geoProperty;
+      this.charts[chart].options.nbLevels = Object.keys(geoLevels).length - 1;
+
       // Add the div for metadata informations
       this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
 
@@ -1241,6 +1248,8 @@ var Display = {
           .attr("href","#")
           .on("click", function () { that.charts[chart].element.addScale(1/1.35, 700); return false; });
     }
+
+    var spatialData = this.transformSpatialMetadata(metadata.members, this.charts[chart].options.geoProperty);
 
     /// update layers
     var layers = this.charts[chart].element.geoJsons();

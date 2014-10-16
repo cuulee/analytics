@@ -1084,7 +1084,7 @@ var Display = {
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
       .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
-      .label(function (d) { return metadata.members[d.key].caption; })
+      .label(function (d) { if(metadata.members[d.key] != undefined) return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');

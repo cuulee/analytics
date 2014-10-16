@@ -488,6 +488,16 @@ var Display = {
           this.charts[charts[i]].element.filter(element);
         }
       }
+
+      // Update the colors
+      for (var chart in this.charts) {
+        if (charts.indexOf(this.charts[chart]) < 0) {
+          if (this.charts[chart].element.colorDomain !== undefined) {
+            crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
+            this.charts[chart].element.colorDomain(this.niceDomain(crossfilterDimAndGroup.group));
+          }
+        }
+      }
     }
   },
 

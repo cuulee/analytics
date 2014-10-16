@@ -1319,6 +1319,9 @@ var Display = {
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
 
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
+
     crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
 
     var format = d3.format(".3s");
@@ -1370,6 +1373,10 @@ var Display = {
         .callbackZoomIn(function(el, dcChartID) { that.drillDown(dimension, el, dcChartID); })
         .callbackZoomOut(function (dcChartID) { that.rollUp(dimension, dcChartID); });
     }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
+
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
     var format = d3.format(".3s");

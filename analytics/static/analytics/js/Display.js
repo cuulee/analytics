@@ -8,6 +8,7 @@ var Display = {
   schema : null,
   cube : null,
   measure : null,
+  measuresLoaded : [],
 
   /**
    * Contains the list of the slices done on the dimensions. See example for scheme of each element.
@@ -371,9 +372,10 @@ var Display = {
    *
    * @private
    * @param {string} dimension
+   * @param {Array} [measures=[this.measure]] - list of measures we want to aggregate. By default it is only the currently selected measure.
    * @return {Object} dimension and group
    */
-  getCrossfilterDimensionAndGroup : function (dimension) {
+  getCrossfilterDimensionAndGroup : function (dimension, measures) {
 
     var that = this;
 
@@ -381,14 +383,46 @@ var Display = {
       this.dimensions[dimension].crossfilter = this.dataCrossfilter.dimension(function(d) { return d[dimension]; });
     }
 
-    if (this.dimensions[dimension].crossfilterGroup === undefined) {
-      this.dimensions[dimension].crossfilterGroup = this.dimensions[dimension].crossfilter.group().reduceSum(function(d) { return d[that.measure]; });
+    var out = {
+      "dimension" : this.dimensions[dimension].crossfilter,
+      "group" : undefined
+    };
+
+    if (measures === undefined) {
+      if (this.dimensions[dimension].crossfilterGroup === undefined) {
+        this.dimensions[dimension].crossfilterGroup = this.dimensions[dimension].crossfilter.group().reduceSum(function(d) { return d[that.measure]; });
+      }
+      out.group = this.dimensions[dimension].crossfilterGroup;
     }
 
-    return {
-      "dimension" : this.dimensions[dimension].crossfilter,
-      "group" : this.dimensions[dimension].crossfilterGroup
-    };
+    // if we have a custom list of measures, we compute the group
+    else {
+      measureToGroup = [this.measure];
+      for (var i in measures)
+        if (measureToGroup.indexOf(measures[i]) < 0)
+          measureToGroup.push(measures[i]);
+
+      out.group = this.dimensions[dimension].crossfilter.group().reduce(
+        function (p, v) {
+          for (var i in measureToGroup)
+            p[measureToGroup[i]] += v[measureToGroup[i]];
+          return p;
+        },
+        function (p, v) {
+          for (var i in measureToGroup)
+            p[measureToGroup[i]] -= v[measureToGroup[i]];
+          return p;
+        },
+        function () {
+          var p = {};
+          for (var i in measureToGroup)
+            p[measureToGroup[i]] = 0;
+          return p;
+        }
+      );
+    }
+
+    return out;
   },
 
   /**
@@ -488,13 +522,18 @@ var Display = {
           this.charts[charts[i]].element.filter(element);
         }
       }
-
       // Update the colors
       for (var chart in this.charts) {
         if (charts.indexOf(this.charts[chart]) < 0) {
           if (this.charts[chart].element.colorDomain !== undefined) {
-            crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
+            var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
             this.charts[chart].element.colorDomain(this.niceDomain(crossfilterDimAndGroup.group));
+          }
+          if (this.charts[chart].element.r !== undefined) {
+            var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0], this.charts[chart].dimensions.slice(1));
+            this.charts[chart].element
+              .xAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, this.charts[chart].dimensions[1])[1]*0.1)
+              .yAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, this.charts[chart].dimensions[2])[1]*0.1);
           }
         }
       }
@@ -706,12 +745,12 @@ var Display = {
    * @return {Object} crossfilter dataset
    */
   getDataClientAgregates : function () {
-    // set cube & measure
     Query.clear();
-    Query.drill(this.cube);
-    Query.push(this.measure);
 
-    // Select first data
+    // set cube
+    Query.drill(this.cube);
+
+    // set dimensions to get
     var dimensionsList = this.getDimensions();
     var hierachiesList = [];
     for (var i in dimensionsList) {
@@ -723,6 +762,21 @@ var Display = {
     }
     Query.dice(hierachiesList);
 
+    // set measures
+    // (dimensions used in chart that are not in dimensionsList are measures)
+    this.measuresLoaded = [this.measure];
+    Query.push(this.measure);
+    for (var chart in this.charts) {
+      var chartDimensions = this.charts[chart].dimensions;
+      for (var i in chartDimensions) {
+        if (dimensionsList.indexOf(chartDimensions[i]) < 0) {
+          Query.push(chartDimensions[i]);
+          this.measuresLoaded.push(chartDimensions[i]);
+        }
+      }
+    }
+
+    // get data
     var data = Query.execute();
 
     return this.setCrossfilterData(data);
@@ -836,6 +890,9 @@ var Display = {
         this.displayWordCloud(chart);
         break;
 
+      case "bubble":
+        this.displayBubble(chart);
+        break;
     }
   },
 
@@ -845,7 +902,6 @@ var Display = {
    * @param  {DOMObject} DOM Object in which we will put meta infos
    */
   displayChartMetaContainer : function (element) {
-    console.log(element);
     $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span>')
   },
 
@@ -869,9 +925,48 @@ var Display = {
           $('#chartparam-dimension').append('<option value="'+dimension+'">'+that.getDimensionCaption(dimension)+'</option>');
         }
 
+        // Add measures to the selects in the chartparams form
+        var dimx = $('#chartparam-dimension-x').parent().parent().hide();
+        var dimy = $('#chartparam-dimension-y').parent().parent().hide();
+        var sort = $('#chartparam-sort').parent().parent().hide();
+        $('#chartparam-dimension-x').empty();
+        $('#chartparam-dimension-y').empty();
+        var measures = Query.getMesures(that.schema, that.cube);
+        for (var measure in measures) {
+          $('#chartparam-dimension-x').append('<option value="'+measure+'">'+measures[measure].caption+'</option>');
+          $('#chartparam-dimension-y').append('<option value="'+measure+'">'+measures[measure].caption+'</option>');
+        }
+
         // autoset infos
-        $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
         $('#chartparam-type').val(that.charts[chart].type);
+        $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
+        $('#chartparam-dimension-x').val(that.charts[chart].dimensions[1]);
+        $('#chartparam-dimension-y').val(that.charts[chart].dimensions[2]);
+
+        // update form dynamically depending on type
+        function updateForm(chartType, duration) {
+          $('#chartparam-dimension option').removeAttr('disabled');
+          if (chartType == 'map') {
+            $('#chartparam-dimension').val(Query.getGeoDimension(that.schema, that.cube));
+            $('#chartparam-dimension option[value!="'+Query.getGeoDimension(that.schema, that.cube)+'"]').attr('disabled', 'disabled');
+          }
+
+          if (chartType == 'bubble') {
+            dimx.slideDown(duration);
+            dimy.slideDown(duration);
+          }
+          else {
+            dimx.slideUp(duration);
+            dimy.slideUp(duration);
+          }
+
+          if (chartType == 'pie' || chartType == 'bar' || chartType == 'table')
+            sort.slideDown(duration);
+          else
+            sort.slideUp(duration);
+        }
+        updateForm($('#chartparam-type').val(), 0);
+        $('#chartparam-type').change(function() { updateForm($(this).val(), 400); });
 
         // set callback for save
         $('#chartparams-set').unbind('click').click(function() {
@@ -879,6 +974,8 @@ var Display = {
 
           var options = {};
           options.dimension = $('#chartparam-dimension').val();
+          options.dimensionx = $('#chartparam-dimension-x').val();
+          options.dimensiony = $('#chartparam-dimension-y').val();
           options.sort      = $('#chartparam-sort').val();
           options.type      = $('#chartparam-type').val();
 
@@ -951,38 +1048,80 @@ var Display = {
   updateChart : function (chart, options) {
     console.log("update", chart, options);
 
-    var updateDisplay = false;
+    var doRender = false;
+    var doRedraw = false;
+    var updateData = false;
 
-    if (options.type == "map" && options.dimension != Query.getGeoDimension(this.schema, this.cube)) {
-      // Check if we are trying something else than a geographical dimension on the map
+    // Bubble chart must have 3 dimensions
+    if (options.type == "bubble" && (!options.dimensionx || !options.dimensiony)) {
+      new PNotify({
+        'title' : 'Impossible to use a bubble chart',
+        'text': 'You must set the X and Y axes to use a bubble chart'
+      });
+    }
+    // Check if we are trying something else than a geographical dimension on the map
+    else if (options.type == "map" && options.dimension != Query.getGeoDimension(this.schema, this.cube)) {
       new PNotify({
         'title' : 'Impossible to use a map chart',
         'text': 'Map can only show geographical dimensions'
       });
-    } else {
-      // Dimension change
-      if (this.charts[chart].dimensions.indexOf(options.dimension) < 0) {
-        this.charts[chart].dimensions = [options.dimension];
-        updateDisplay = true;
-      }
-
+    }
+    else {
       // Chart type change
       if (this.charts[chart].type != options.type) {
+        // remove old chart
         dc.deregisterChart(this.charts[chart].element);
         delete this.charts[chart].element;
-        this.charts[chart].type = options.type;
         $(this.charts[chart].selector).empty();
-        updateDisplay = true;
+        // set new type
+        this.charts[chart].type = options.type;
+        doRender = true;
+      }
+
+      // Dimensions change
+      if (options.dimension != this.charts[chart].dimensions[0]) {
+        this.charts[chart].dimensions[0] = options.dimension;
+        doRedraw = true;
+      }
+      // bubble : checks X and Y dimensions
+      if (this.charts[chart].type == "bubble") {
+        if (options.dimensionx != this.charts[chart].dimensions[1]) {
+          this.charts[chart].dimensions[1] = options.dimensionx;
+          doRedraw = true;
+          if (this.measuresLoaded.indexOf(options.dimensionx) < 0)
+            updateData = true;
+        }
+        if (options.dimensiony != this.charts[chart].dimensions[2]) {
+          this.charts[chart].dimensions[2] = options.dimensiony;
+          doRedraw = true;
+          if (this.measuresLoaded.indexOf(options.dimensiony) < 0)
+            updateData = true;
+        }
+        this.charts[chart].dimensions = this.charts[chart].dimensions.slice(0, 3);
+      }
+      // not bubble = 1 dimension max
+      else {
+        this.charts[chart].dimensions = this.charts[chart].dimensions.slice(0, 1);
       }
     }
 
     // Sort order change
     // TODO
 
-    // Update display
-    if (updateDisplay) {
+    // Update data
+    if (updateData) {
+      this.getData();
       this.displayChart(chart);
       this.charts[chart].element.render();
+      this.displayCharts();
+    }
+    // Update display
+    else if (doRedraw || doRender) {
+      this.displayChart(chart);
+      if (doRender)
+        this.charts[chart].element.render();
+      else
+        this.charts[chart].element.redraw();
     }
   },
 
@@ -1276,6 +1415,103 @@ var Display = {
     this.charts[chart].element.yAxis().tickFormat(function(d) { return format(d);});
   },
 
+
+  /**
+   * Display a bubble chart
+   *
+   * @private
+   * @param {string} chart id of the chart in the charts attribute
+   */
+  displayBubble : function (chart) {
+    var that = this;
+
+    // dimensions
+    var measures = Query.getMesures(this.schema, this.cube);
+    var extraMeasures = this.charts[chart].dimensions.slice(1);
+    var dimensions = [this.charts[chart].dimensions[0], this.charts[chart].dimensions[1], this.charts[chart].dimensions[2], this.measure];
+
+    // get data
+    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimensions[0], extraMeasures);
+    var metadata = this.getSliceFromStack(dimensions[0]);
+    var format = d3.format(".3s");
+
+    if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+      this.displayParams(chart);
+      this.displayTip(chart);
+
+      var width = $(this.charts[chart].selector).width();
+      var height = $(this.charts[chart].selector).height();
+
+      this.charts[chart].element = dc.bubbleChart(this.charts[chart].selector)
+        .width(width)
+        .height(height)
+        .margins({top: 0, right: 0, bottom: 30, left: 45})
+
+        .elasticY(true)
+        .elasticX(true)
+        .elasticRadius(true)
+
+        .renderHorizontalGridLines(true)
+        .renderVerticalGridLines(true)
+
+        .colors(d3.scale.quantize().range(this.options.colors))
+        .colorCalculator(function (d) { return d.value[dimensions[3]] ? that.charts[chart].element.colors()(d.value[dimensions[3]]) : '#ccc'; })
+
+        .maxBubbleRelativeSize(0.075)
+
+        .on("filtered", function (ch, filter) { that.setFilter(chart, dimensions[0], filter); });
+
+        /*
+        .callbackZoomIn(function(el, chartID) { that.drillDown(dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(dimensions[0], chartID); });
+        */
+
+      this.charts[chart].element.yAxis().tickFormat(function (s) { return format(s); });
+      this.charts[chart].element.xAxis().tickFormat(function (s) { return format(s); });
+    }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
+    this.charts[chart].element
+      .dimension(crossfilterDimAndGroup.dimension)
+      .group(crossfilterDimAndGroup.group)
+
+      .keyAccessor(function (p)         { return p.value[dimensions[1]]; })
+      .valueAccessor(function (p)       { return p.value[dimensions[2]]; })
+      .radiusValueAccessor(function (p) { return p.value[dimensions[3]]; })
+
+      .colorDomain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[3]))
+
+      .x(d3.scale.linear().domain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[1])))
+      .y(d3.scale.linear().domain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[2])))
+      .r(d3.scale.linear().domain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[3])))
+
+      .xAxisLabel(measures[dimensions[1]].caption)
+      .yAxisLabel(measures[dimensions[2]].caption)
+
+      .xAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, dimensions[1])[1]*0.1)
+      .yAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, dimensions[2])[1]*0.1)
+
+      .minRadiusWithLabel(14)
+
+      .label(function (d) { if(metadata.members[d.key] != undefined) return metadata.members[d.key].caption; })
+      .title(function (d) {
+        var key = d.key ? d.key : d.data.key;
+        if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
+        var out = metadata.members[key].caption + "\n" +
+                  measures[dimensions[1]].caption + ": " + (d.value[dimensions[1]] ? format(d.value[dimensions[1]]) : 0) + "\n";
+        if (dimensions[2] != dimensions[1])
+          out +=  measures[dimensions[2]].caption + ": " + (d.value[dimensions[2]] ? format(d.value[dimensions[2]]) : 0) + "\n";
+        if (dimensions[3] != dimensions[1] && dimensions[3] != dimensions[2])
+          out +=  measures[dimensions[3]].caption + ": " + (d.value[dimensions[3]] ? format(d.value[dimensions[3]]) : 0) + "\n";
+        return out;
+      });
+  },
+
+
   /**
    * Display a timeline
    *
@@ -1405,14 +1641,23 @@ var Display = {
    *
    * @private
    * @param {Object} crossfilterGroup - group of which you want a nice domain
+   * @param {String} [measure] - name of the nested value accessor in `d.value`. Needed for group with more than 1 aggregated measure.
+   * @return {Array} [min, max] rounded
    */
-  niceDomain : function (crossfilterGroup) {
-    var min = crossfilterGroup.order(function (d) {return -d;}).top(1)[0];
-    var max = crossfilterGroup.orderNatural(). top(1)[0];
+  niceDomain : function (crossfilterGroup, measure) {
+    function getVal(d) {
+      if (typeof measure == "undefined")
+        return d;
+      else
+        return d[measure];
+    }
 
-    if (min.value != undefined && max.value != undefined) {
-      min = min.value;
-      max = max.value;
+    var min = crossfilterGroup.order(function (d) {return -getVal(d);}).top(1)[0];
+    var max = crossfilterGroup.order(function (d) {return  getVal(d);}).top(1)[0];
+
+    if (getVal(min.value) != undefined && getVal(max.value) != undefined) {
+      min = getVal(min.value);
+      max = getVal(max.value);
       var nbDigitsMax = Math.floor(Math.log(max)/Math.LN10+1);
       min = Math.floor(min / Math.pow(10, nbDigitsMax - 2))*Math.pow(10, nbDigitsMax - 2);
       max = Math.ceil(max / Math.pow(10, nbDigitsMax - 2))*Math.pow(10, nbDigitsMax - 2);
@@ -1461,33 +1706,21 @@ var Display = {
         switch(this.charts[chart].type) {
           case "pie":
             this.charts[chart].element
-              .radius(0) // reset radius for pie so that it's recomputed
-              .width(width - 30)
-              .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
-            break;
-
+              .radius(0); // reset radius for pie so that it's recomputed
           case "bar":
             this.charts[chart].element
               .width(width - 30)
               .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
             break;
 
-          case "map":
-          case "timeline":
+          default:
             this.charts[chart].element
               .width(width)
               .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
             break;
         }
+        if (render)
+          this.charts[chart].element.render();
       }
     }
   },

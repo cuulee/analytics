@@ -1,3 +1,22 @@
+/*!
+ *  crossfilter-server 0.1.0
+ *  https://github.com/loganalysis/analytics-js
+ *  Copyright 2014
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 (function(exports){
 
   exports.crossfilterServer = crossfilterServer;
@@ -23,7 +42,7 @@ metadata = {
   api : APIObject,
   schema : "<schemaId>",
   cube : "<cubeId>",
-  measure : "<mesureId>",
+  measures : ["<defaultMesureId>","<mesure2Id>",..],
   dimensions : {
     <dim1Id> : {
       hierarchy : "<hierarchyId>",
@@ -51,11 +70,11 @@ function crossfilterServer(metadata) {
   var dimensions = metadata.dimensions;
 
   // check validity of metadata
-  if (typeof api              != "object" ||
-      typeof metadata.schema  != "string" ||
-      typeof metadata.cube    != "string" ||
-      typeof metadata.measure != "string" ||
-      typeof dimensions       != "object" ||
+  if (typeof api               != "object" ||
+      typeof metadata.schema   != "string" ||
+      typeof metadata.cube     != "string" ||
+      typeof metadata.measures != "object" ||
+      typeof dimensions        != "object" ||
       Object.keys(dimensions).length < 1)
   {
     throw "Metadata are malformed";
@@ -66,7 +85,6 @@ function crossfilterServer(metadata) {
     groupAll: groupAll,
     size: size
   };
-  // importTest "crossfilter-server-test-accessors.js"
 
   // this will store the filters
   var filters = {};
@@ -74,7 +92,7 @@ function crossfilterServer(metadata) {
   // this will store the datasets for each group
   var datasets = {};
 
-  /*
+  /**
    * Empty the stored datasets
    * @private
    */
@@ -101,18 +119,23 @@ function crossfilterServer(metadata) {
    * get data for this dimension
    * @param {String} [dimensionName=null] - dimension that won't be filtered
    * @param {Boolean} [dice=true] - dice the dimension `dimensionName`
+   * @param {Array<String>} [measures] - list of measures to keep
    * @private
    */
-  function getData(dimensionName, dice) {
+  function getData(dimensionName, dice, measures) {
     dimensionName = (dimensionName === undefined || dimensionName === null) ? "_all" : dimensionName;
     dice          = (dice          === undefined) ? true : dice;
+    measures      = (measures      === undefined) ? [metadata.measures[0]] : measures;
 
-    if (typeof datasets[dimensionName] == "undefined") {
+    var datasetName = dimensionName + JSON.stringify(measures);
+
+    if (typeof datasets[datasetName] == "undefined") {
 
       // init query
       api.clear();
       api.drill(metadata.cube);
-      api.push(metadata.measure);
+      for (var i in measures)
+        api.push(measures[i]);
 
       // Slice cube according to current slices + filters (exect current dim. filters)
       for (var dim in dimensions) {
@@ -127,11 +150,19 @@ function crossfilterServer(metadata) {
         api.dice([dimensions[dimensionName].hierarchy]);
 
       // run query & format data like CF does & sort by key
-      datasets[dimensionName] = api.execute().map(function(d) {
-        return {
-          "key" : d[dimensionName],
-          "value" : d[metadata.measure]
+      datasets[datasetName] = api.execute().map(function(d) {
+        var out = {
+          "key" : d[dimensionName]
         };
+        if (measures.length == 1) {
+          out.value = d[measures[0]];
+        }
+        else {
+          out.value = {};
+          for (var i in measures)
+            out.value[measures[i]] = d[measures[i]];
+        }
+        return out;
       }).sort(function (a, b) {
         if (a.key > b.key) {
           return 1;
@@ -141,7 +172,7 @@ function crossfilterServer(metadata) {
       });
     }
 
-    return datasets[dimensionName];
+    return datasets[datasetName];
   }
 
 
@@ -209,13 +240,13 @@ to whatever dimensions you create.
 function dimension(dimensionFct) {
 
   // get dimension name
-  var dimensionName = getDimensionName(dimensionFct);
+  var dimensionName = getDimensionName();
 
   var hierarchy = dimensions[dimensionName].hierarchy;
   var level     = dimensions[dimensionName].level;
   var members   = dimensions[dimensionName].members;
 
-  // check existance in metadata
+  // check existence in metadata
   if (typeof dimensionName != "string" ||
       typeof hierarchy     != "string" ||
       typeof level         != "number" ||
@@ -238,12 +269,11 @@ function dimension(dimensionFct) {
     groupAll: groupAll,
     dispose: dispose
   };
-  // importTest "dimension-test-accessors.js"
 
   /**
    * Guess the dimension name from the dimension function
    */
-  function getDimensionName(dimensionFct) {
+  function getDimensionName() {
     var dummyRecord = {};
     Object.keys(dimensions).forEach(function(d) {
       dummyRecord[d] = d;
@@ -495,6 +525,8 @@ total, then group by total only observes the filter by type.
 **/
 function group() {
 
+  var reduceMeasures = [];
+
   // returned object with function accessors
   var groupObj = {
     top: top,
@@ -507,7 +539,10 @@ function group() {
     size: size,
     dispose: dispose
   };
-  // importTest "group-test-accessors.js"
+groupObj.getDataAndSort = getDataAndSort;
+groupObj.sortFunc = sortFunc;
+groupObj.reduceMeasures = reduceMeasures;
+
 
 
   var sortFunc = null;
@@ -522,7 +557,7 @@ function group() {
       sortFunc = function(d) { return d; };
 
     var out = [];
-    var data = getData(dimensionName);
+    var data = all();
 
     // copy data
     for (var i = 0; i < data.length; i++) {
@@ -553,7 +588,10 @@ function group() {
   ```
   **/
   function all() {
-    return getData(dimensionName);
+    if (reduceMeasures.length > 0)
+      return getData(dimensionName, true, reduceMeasures);
+    else
+      return getData(dimensionName, true);
   }
 
   /**
@@ -580,14 +618,15 @@ function group() {
   }
 
   /**
-  ### crossfilterServer.dimension.group.reduce(), reduceCount(), reduceSum()
+  ### crossfilterServer.dimension.group.reduce(add, remove, initial), reduceCount(), reduceSum()
 
   These functions are here for compatibility with crossfilter interfaces but actually does nothing
   because currently we can't choose how the database will aggregate data.
 
   Currently, the agregate function is the one your API use.
   **/
-  function reduce() {
+  function reduce(add, remove, initial) {
+    reduceMeasures = Object.keys(initial());
     return groupObj;
   }
   function reduceCount() {
@@ -653,9 +692,25 @@ function group() {
 }
   ////////////////////////////////////////
 
+dimensionObj.dimensionName = dimensionName;
+dimensionObj.getDimensionName = getDimensionName;
+dimensionObj.getFilters = function() { return filters[dimensionName]; };
+
+
   return dimensionObj;
 }
+
   ////////////////////////////////////////
+
+crossfilterServerObj.api = api;
+crossfilterServerObj.dimensions = dimensions;
+crossfilterServerObj.metadata = metadata;
+crossfilterServerObj.filters = filters;
+crossfilterServerObj.datasets = datasets;
+crossfilterServerObj.emptyDatasets = emptyDatasets;
+crossfilterServerObj.getSlice = getSlice;
+crossfilterServerObj.getData = getData;
+
 
   return crossfilterServerObj;
 }

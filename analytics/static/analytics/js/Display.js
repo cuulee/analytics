@@ -815,17 +815,33 @@ var Display = {
       "api" : Query,
       "schema" : this.schema,
       "cube" : this.cube,
-      "measure" : this.measure,
+      "measures" : [this.measure],
       "dimensions" : {}
     };
 
-    for (var dimension in this.dimensions) {
+    // set dimensions to get
+    var dimensionsList = this.getDimensions();
+    for (var i in dimensionsList) {
+      var dimension = dimensionsList[i];
       var slice = this.getSliceFromStack(dimension);
       metadata.dimensions[dimension] = {
         "hierarchy" : this.getDimensionHierarchy(dimension),
         "level" : slice.level,
         "members" : Object.keys(slice.members)
       };
+    }
+
+    // set measures
+    // (dimensions used in chart that are not in dimensionsList are measures)
+    this.measuresLoaded = [this.measure];
+    for (var chart in this.charts) {
+      var chartDimensions = this.charts[chart].dimensions;
+      for (var i in chartDimensions) {
+        if (dimensionsList.indexOf(chartDimensions[i]) < 0) {
+          metadata.measures.push(chartDimensions[i]);
+          this.measuresLoaded.push(chartDimensions[i]);
+        }
+      }
     }
 
     return this.setCrossfilterData(metadata);
@@ -1471,12 +1487,10 @@ var Display = {
 
         .maxBubbleRelativeSize(0.075)
 
-        .on("filtered", function (ch, filter) { that.setFilter(chart, dimensions[0], filter); });
-
-        /*
         .callbackZoomIn(function(el, chartID) { that.drillDown(dimensions[0], el, chartID); })
-        .callbackZoomOut(function (chartID) { that.rollUp(dimensions[0], chartID); });
-        */
+        .callbackZoomOut(function (chartID) { that.rollUp(dimensions[0], chartID); })
+
+        .on("filtered", function (ch, filter) { that.setFilter(chart, dimensions[0], filter); });
 
       this.charts[chart].element.yAxis().tickFormat(function (s) { return format(s); });
       this.charts[chart].element.xAxis().tickFormat(function (s) { return format(s); });

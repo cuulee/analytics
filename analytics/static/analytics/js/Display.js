@@ -46,6 +46,7 @@ var Display = {
       'type' : 'map',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {"geoProperty" : undefined}
     },
     'timeline' : {
@@ -53,6 +54,7 @@ var Display = {
       'type' : 'timeline',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     },
     'rightChart' : {
@@ -60,6 +62,7 @@ var Display = {
       'type' : 'pie',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     },
     'barChart' : {
@@ -67,6 +70,7 @@ var Display = {
       'type' : 'bar',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     },
     'table' : {
@@ -74,6 +78,7 @@ var Display = {
       'type' : 'table',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     }
   },
@@ -958,6 +963,7 @@ var Display = {
         $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
         $('#chartparam-dimension-x').val(that.charts[chart].dimensions[1]);
         $('#chartparam-dimension-y').val(that.charts[chart].dimensions[2]);
+        $('#chartparam-sort').val(that.charts[chart].sort);
 
         // update form dynamically depending on type
         function updateForm(chartType, duration) {
@@ -1122,7 +1128,10 @@ var Display = {
     }
 
     // Sort order change
-    // TODO
+    if (this.charts[chart].sort != options.sort){
+      this.charts[chart].sort = options.sort;
+      doRedraw = true;
+    }
 
     // Update data
     if (updateData) {
@@ -1347,6 +1356,21 @@ var Display = {
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; });
     }
 
+    switch(this.charts[chart].sort) {
+      case "key":
+      this.charts[chart].element.ordering(function (d) { return  d.key;   });
+      break;
+
+      case "valueasc":
+      this.charts[chart].element.ordering(function (d) { return  d.value; });
+      break;
+
+      default: // valuedesc
+      this.charts[chart].element.ordering(function (d) { return -d.value; });
+      this.charts[chart].sort = "valuedesc";
+      break;
+    }
+
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
@@ -1375,7 +1399,7 @@ var Display = {
   displayBar : function (chart) {
     var that = this;
 
-    /// get data
+    // get data
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
@@ -1415,18 +1439,31 @@ var Display = {
         .elasticX(true)
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
-      }
+    }
+
+    // Generate sorted keys
+    switch(this.charts[chart].sort) {
+      case "valueasc":
+        var keys = crossfilterDimAndGroup.group.order(function(d) { return -d; }).top(Infinity).map(function(d) { return d.key; });
+      break;
+
+      case "valuedesc":
+        var keys = crossfilterDimAndGroup.group.order(function(d) { return d; }).top(Infinity).map(function(d) { return d.key; });
+      break;
+
+      default: // key
+        var keys = d3.keys(metadata.members).sort();
+        this.charts[chart].sort = "key";
+      break;
+    }
 
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
-    // We consider that the keys are sortable data
-    var keys = d3.keys(metadata.members).sort();
-    var elementsX = d3.scale.ordinal().domain(keys);
     var format = d3.format(".3s");
 
     this.charts[chart].element
-      .x(elementsX)
+      .x(d3.scale.ordinal().domain(keys))
       .xUnits(dc.units.ordinal)
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
@@ -1636,6 +1673,27 @@ var Display = {
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
+    switch(this.charts[chart].sort) {
+        case "key":
+          this.charts[chart].element
+            .order(d3.ascending)
+            .sortBy(function(d) {return d.key; });
+        break;
+
+        case "valueasc":
+          this.charts[chart].element
+            .order(d3.descending)
+            .sortBy(function(d) { return -d.value; });
+        break;
+
+        default: // valuedesc
+          this.charts[chart].element
+            .order(d3.descending)
+            .sortBy(function(d) { return d.value; });
+          this.charts[chart].sort = "valuedesc"
+        break;
+    }
+
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
     var format = d3.format(".3s");
@@ -1643,8 +1701,6 @@ var Display = {
     this.charts[chart].element
         .dimension(crossfilterDimAndGroup.group)
         .group(function(d){return "";})
-        .order(d3.descending)
-        .sortBy(function(d) { return d.value; })
         .size(Infinity)
         .columns([
           function(d){

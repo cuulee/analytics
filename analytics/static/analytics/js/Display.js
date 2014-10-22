@@ -1901,8 +1901,16 @@ var Display = {
     this.getData();
     this.displayCharts(true);
 
+    var that = this;
+
     d3.select(this.options.resetSelector).on("click", function () {
           dc.filterAll();
+          for (var chart in that.charts) {
+            var crossfilterDimAndGroup = that.getCrossfilterDimensionAndGroup(that.charts[chart].dimensions[0]);
+            if (that.charts[chart].element.colorDomain != undefined) {
+              that.charts[chart].element.colorDomain(that.niceDomain(crossfilterDimAndGroup.group));
+            }
+          }
           dc.redrawAll();
           return false;
         }

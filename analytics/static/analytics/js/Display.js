@@ -546,6 +546,44 @@ var Display = {
   },
 
   /**
+   * Play a chart's dimension, it filters the dimension member by member
+   * to be able to see easily the evolution of the dimension.
+   *
+   * @param {String} chart, id of the chart on which to play the data
+   */
+  playChart : function (chart, members, old_member) {
+    // The params members and old_member are used only for the recursion
+    var that = this;
+    var dimension = this.charts[chart].dimensions[0];
+    if (members == undefined) {
+      // retrieve all the members of the chart's dimension if the members parameter
+      // is undefined = not in the recursion
+      members = Object.keys(this.dimensions[dimension].membersStack[0]);
+      members.sort();
+    }
+
+    if (members.length == 0) {
+      // Exit once we've gone through all the members
+      return;
+    }
+
+    // filter the current member
+    this.setFilter(chart, dimension, members[0]);
+    if (old_member != undefined) {
+      // unfilter the previsou one
+      this.setFilter(chart, dimension, old_member);
+      this.charts[chart].element.filter(old_member);
+    }
+    this.charts[chart].element.filter(members[0]);
+    var current_member = members[0];
+    dc.redrawAll();
+
+    // remove current member from the members list
+    members.shift();
+    setTimeout(function() { that.playChart(chart, members, current_member) }, 300);
+  },
+
+  /**
    * Set the filters of the charts and crossfilter data according to those defined in the state of this object.
    * This is usefull to filter the charts according to a loaded state with loadState, but also to keep filters
    * applied from one dataset to another when using drill-down/roll-up.

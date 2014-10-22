@@ -558,7 +558,7 @@ var Display = {
     if (members == undefined) {
       // retrieve all the members of the chart's dimension if the members parameter
       // is undefined = not in the recursion
-      members = Object.keys(this.dimensions[dimension].membersStack[0]);
+      members = Object.keys(this.getSliceFromStack(dimension).members);
       members.sort();
     }
 

@@ -961,7 +961,7 @@ var Display = {
    * @param  {DOMObject} DOM Object in which we will put meta infos
    */
   displayChartMetaContainer : function (element) {
-    $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span>')
+    $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span><span class="chart-play"></span>')
   },
 
   /**
@@ -1045,6 +1045,16 @@ var Display = {
         // show modal
         $('#chartparams').modal('show');
       });
+
+  },
+
+  displayPlay : function (chart) {
+    var that = this;
+    var el = $('<span class="btn-params btn btn-xs btn-default"><i class="fa fa-nomargin fa-play"></i></span>');
+    $(this.charts[chart].selector+' .chart-meta .chart-play').replaceWith(el);
+    el.click(function () {
+      that.playChart(chart);
+    });
   },
 
   displayTip : function (chart) {
@@ -1282,6 +1292,7 @@ var Display = {
 
       this.displayParams(chart);
       this.displayTip(chart);
+      this.displayPlay(chart);
 
       this.charts[chart].element = dc.geoChoroplethChart(this.charts[chart].selector)
         .width(width)
@@ -1378,6 +1389,7 @@ var Display = {
 
       this.displayParams(chart);
       this.displayTip(chart);
+      this.displayPlay(chart);
 
       this.charts[chart].element = dc.pieChart(this.charts[chart].selector)
         .ordering(function (d) { return d.value; })
@@ -1449,6 +1461,7 @@ var Display = {
 
       this.displayParams(chart);
       this.displayTip(chart);
+      this.displayPlay(chart);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
@@ -1541,6 +1554,7 @@ var Display = {
 
       this.displayParams(chart);
       this.displayTip(chart);
+      this.displayPlay(chart);
 
       var width = $(this.charts[chart].selector).width();
       var height = $(this.charts[chart].selector).height();
@@ -1631,6 +1645,7 @@ var Display = {
       this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
 
       this.displayTip(chart);
+      this.displayPlay(chart);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
@@ -1699,6 +1714,7 @@ var Display = {
 
       this.displayParams(chart);
       this.displayTip(chart);
+      this.displayPlay(chart);
 
       d3.select(this.charts[chart].selector).attr('class', 'dc-chart');
       d3.select(this.charts[chart].selector).append('table');

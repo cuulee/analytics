@@ -37,6 +37,7 @@ var Display = {
    *  'type' : 'map', // type of chart
    *  'element' : <dc element>, // dc.js element
    *  'dimensions' : ["geography"], // dimensions shown of the axes of the chart
+   *  'sort': "valueasc" // sorting data by value ascending("valueasc"), by value descending("valuedesc") or by key ("key")  
    *  'options' : {"geoProperty" : "geom"}, // options of the chart if needed
    *
    * @private

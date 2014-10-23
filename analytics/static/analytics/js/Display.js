@@ -596,14 +596,14 @@ var Display = {
       members.sort();
     }
 
-    if (members.length == 0) {
+    if (members.length === 0) {
       // Exit once we've gone through all the members
       return;
     }
 
     // filter the current member
     this.setFilter(chart, dimension, members[0]);
-    if (old_member != undefined) {
+    if (old_member !== undefined) {
       // unfilter the previsou one
       this.setFilter(chart, dimension, old_member);
       this.charts[chart].element.filter(old_member);
@@ -614,7 +614,7 @@ var Display = {
 
     // remove current member from the members list
     members.shift();
-    setTimeout(function() { that.playChart(chart, members, current_member) }, 300);
+    setTimeout(function() { that.playChart(chart, members, current_member); }, 300);
   },
 
   /**
@@ -802,10 +802,11 @@ var Display = {
    */
   getData : function () {
     try {
-      if (this.isClientSideAggrPossible())
+      if (this.isClientSideAggrPossible()) {
         return this.getDataClientAgregates();
-      else
+      } else {
         return this.getDataServerAgregates();
+      }
     } catch(err) {
       new PNotify({
         title: 'An error occured',
@@ -1006,7 +1007,7 @@ var Display = {
    * @param  {DOMObject} DOM Object in which we will put meta infos
    */
   displayChartMetaContainer : function (element) {
-    $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span><span class="chart-play"></span>')
+    $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span><span class="chart-play"></span>');
   },
 
   /**
@@ -1121,7 +1122,7 @@ var Display = {
     var dimension = this.charts[chart].dimensions[0];
 
     var el = $(this.charts[chart].selector + ' .chart-meta .chart-levels-icons');
-    if (el.html().length == 0) {
+    if (el.html().length === 0) {
       el.html('<span class="fa fa-nomargin fa-caret-up"></span><span class="fa fa-nomargin fa-caret-down"></span>');
     }
 
@@ -1373,7 +1374,7 @@ var Display = {
       .label(function (d) { return metadata.members[d.key].caption; })
 
       .title(function (d) {
-        if (metadata.members[d.key] == undefined) return (d.value ? format(d.value) : '');
+        if (metadata.members[d.key] === undefined) return (d.value ? format(d.value) : '');
         return metadata.members[d.key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
       });
   },
@@ -1429,7 +1430,7 @@ var Display = {
 
         .setNbZoomLevels(this.charts[chart].options.nbLevels)
 
-        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
+        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
 
         var div = d3.select(this.charts[chart].selector).append("div")
           .attr("id", this.options.zoomId);
@@ -1551,7 +1552,7 @@ var Display = {
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
       .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
-      .label(function (d) { if(metadata.members[d.key] != undefined) return metadata.members[d.key].caption; })
+      .label(function (d) { if(metadata.members[d.key] !== undefined) return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
@@ -1730,7 +1731,7 @@ var Display = {
 
       .minRadiusWithLabel(14)
 
-      .label(function (d) { if(metadata.members[d.key] != undefined) return metadata.members[d.key].caption; })
+      .label(function (d) { if(metadata.members[d.key] !== undefined) return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
@@ -1865,7 +1866,7 @@ var Display = {
           this.charts[chart].element
             .order(d3.descending)
             .sortBy(function(d) { return d.value; });
-          this.charts[chart].sort = "valuedesc"
+          this.charts[chart].sort = "valuedesc";
         break;
     }
 
@@ -1909,7 +1910,7 @@ var Display = {
     var min = crossfilterGroup.order(function (d) {return -getVal(d);}).top(1)[0];
     var max = crossfilterGroup.order(function (d) {return  getVal(d);}).top(1)[0];
 
-    if (getVal(min.value) != undefined && getVal(max.value) != undefined) {
+    if (getVal(min.value) !== undefined && getVal(max.value) !== undefined) {
       min = getVal(min.value);
       max = getVal(max.value);
       var nbDigitsMax = Math.floor(Math.log(max)/Math.LN10+1);
@@ -2028,7 +2029,7 @@ var Display = {
           dc.filterAll();
           for (var chart in that.charts) {
             var crossfilterDimAndGroup = that.getCrossfilterDimensionAndGroup(that.charts[chart].dimensions[0]);
-            if (that.charts[chart].element.colorDomain != undefined) {
+            if (that.charts[chart].element.colorDomain !== undefined) {
               that.charts[chart].element.colorDomain(that.niceDomain(crossfilterDimAndGroup.group));
             }
           }

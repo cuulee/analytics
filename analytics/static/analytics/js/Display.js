@@ -18,7 +18,8 @@ var Display = {
    *      'caption' : caption, // caption of the dimension
    *      'hierarchy' : hierarchy, // current hierarchy
    *      'membersStack' : [], // stack of all slice done on this hierarchy
-   *      'membersSelected' : [] // list of selected elements on the screen for the last level of the stack
+   *      'membersSelected' : [], // list of selected elements on the screen for the last level of the stack
+   *      'aggregate' : false, // the dimension is to aggregate
    *      'properties' : false, // do we need to get the properties for this dimension ?
    *      'crossfilter' : undefined, // crossfilter element for this dimension
    *      'crossfilterGroup' : undefined // crossfilter element for the group of this dimension
@@ -217,7 +218,7 @@ var Display = {
    *
    * @private
    * @param {string} dimension
-   * @return {string} current shown level
+   * @return {int|null} current shown level
    */
   getDimensionCurrentLevel : function (dimension) {
     if (this.dimensions[dimension] === undefined) {
@@ -246,6 +247,7 @@ var Display = {
         'hierarchy' : hierarchy,
         'membersStack' : [],
         'membersSelected' : [],
+        'aggregate' : false,
         'properties' : false,
         'crossfilter' : undefined,
         'crossfilterGroup' : undefined
@@ -333,8 +335,10 @@ var Display = {
   numberOfCrossedMembers: function () {
     var nb = 1;
     for (var dimension in this.dimensions) {
-      var slice = this.getSliceFromStack(dimension);
-      nb *= Object.keys(slice.members).length
+      if (!this.isAggregated(dimension)) {
+        var slice = this.getSliceFromStack(dimension);
+        nb *= Object.keys(slice.members).length;
+      }
     }
     return nb;
   },
@@ -364,6 +368,36 @@ var Display = {
     for (var chartID in this.charts) {
       this.charts[chartID].dimensions = [];
     }
+  },
+
+  /**
+   * Flag the dimension whose members are to aggregate
+   *
+   * @private
+   * @param {string} dimension
+   */
+  aggregateDimension : function (dimension) {
+    this.dimensions[dimension].aggregate = true;
+  },
+
+  /**
+   * Flag the dimension whose members are to deaggregate
+   *
+   * @private
+   * @param {string} dimension
+   */
+  deaggregateDimension : function (dimension) {
+    this.dimensions[dimension].aggregate = false;
+  },
+
+  /**
+   * Indicate if a dimension is aggregated
+   *
+   * @private
+   * @param {string} dimension
+   */
+  isAggregated : function (dimension) {
+    return this.dimensions[dimension].aggregate;
   },
 
   /**
@@ -529,7 +563,7 @@ var Display = {
       }
       // Update the colors
       for (var chart in this.charts) {
-        if (charts.indexOf(this.charts[chart]) < 0) {
+        if (charts.indexOf(this.charts[chart]) < 0 && this.charts[chart].type != "placeholder") {
           if (this.charts[chart].element.colorDomain !== undefined) {
             var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
             this.charts[chart].element.colorDomain(this.niceDomain(crossfilterDimAndGroup.group));
@@ -798,10 +832,17 @@ var Display = {
     var hierachiesList = [];
     for (var i in dimensionsList) {
       var dimension = dimensionsList[i];
-      var slice = this.getSliceFromStack(dimension);
-      var hierarchy = this.getDimensionHierarchy(dimension);
-      hierachiesList.push(hierarchy);
-      Query.slice(hierarchy, Object.keys(slice.members));
+
+      if (!this.isAggregated(dimension)) {
+        var slice = this.getSliceFromStack(dimension);
+        var hierarchy = this.getDimensionHierarchy(dimension);
+        hierachiesList.push(hierarchy);
+        Query.slice(hierarchy, Object.keys(slice.members));
+      } else {
+        while(this.getDimensionCurrentLevel(dimension) > 0) {
+          this.removeLastSliceFromStack(dimension);
+        }
+      }
     }
     Query.dice(hierachiesList);
 
@@ -951,6 +992,10 @@ var Display = {
 
       case "bubble":
         this.displayBubble(chart);
+        break;
+
+      case "placeholder":
+        this.displayPlaceholder(chart);
         break;
     }
   },
@@ -1110,6 +1155,18 @@ var Display = {
   },
 
   /**
+   * Display a placeholder using the space and shows the param fa-cog
+   *
+   * @param {string} chart id
+   */
+  displayPlaceholder : function (chart) {
+    if($('.dc-'+chart+' .chart-meta').length === 0) {
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+      this.displayParams(chart);
+    }
+  },
+
+  /**
    * Update the configuration of a chart
    * @param  {String} chart   Chart id
    * @param  {Object} options New config
@@ -1137,22 +1194,24 @@ var Display = {
       });
     }
     else {
-      // Chart type change
-      if (this.charts[chart].type != options.type) {
-        // remove old chart
-        dc.deregisterChart(this.charts[chart].element);
-        delete this.charts[chart].element;
-        $(this.charts[chart].selector).empty();
-        // set new type
-        this.charts[chart].type = options.type;
-        doRender = true;
-      }
-
       // Dimensions change
       if (options.dimension != this.charts[chart].dimensions[0]) {
         this.charts[chart].dimensions[0] = options.dimension;
         doRedraw = true;
       }
+      // Chart type change
+      if (this.charts[chart].type != options.type) {
+        // remove old chart
+        $(this.charts[chart].selector).empty();
+        if (this.charts[chart].type != "placeholder") {
+          dc.deregisterChart(this.charts[chart].element);
+          delete this.charts[chart].element;
+        }
+        // set new type
+        this.charts[chart].type = options.type;
+        doRender = true;
+      }
+
       // bubble : checks X and Y dimensions
       if (this.charts[chart].type == "bubble") {
         if (options.dimensionx != this.charts[chart].dimensions[1]) {
@@ -1199,6 +1258,28 @@ var Display = {
   },
 
   /**
+   * Remove charts showing the given dimension
+   * This keeps the params and tips
+   *
+   * @param {string} dimension
+   */
+  removeChartsWithDimension : function (dimension) {
+    for (var chart in this.charts) {
+      if (this.charts[chart].dimensions[0] === dimension) {
+        $(this.charts[chart].selector).empty();
+        if (this.charts[chart].type != "placeholder") {
+          dc.deregisterChart(this.charts[chart].element);
+          delete this.charts[chart].element;
+          this.charts[chart].dimensions = [];
+        }
+
+        this.charts[chart].type = "placeholder";
+        this.displayChart(chart);
+      }
+    }
+  },
+
+  /**
    * Display a wordcloud
    *
    * @private
@@ -1213,14 +1294,50 @@ var Display = {
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
 
+    var chart_backup = this.charts[chart];
+
     /// create element if needed
     if (this.charts[chart].element === undefined) {
 
-      $(this.options.cloudsSelector).append('<div class="wordcloud">'+
+      $(this.options.cloudsSelector).append('<div class="wordcloud" id="'+chart+'-container">'+
           '<div class="wordcloud-title">'+this.getDimensionCaption(dimension)+'</div>'+
           '<div class="wordcloud-chart" id="'+chart+'"></div>'+
           '<div class="wordcloud-legend" id="'+chart+'-legend"></div>'+
         '</div>');
+
+      $("#" + chart + "-container .wordcloud-title").click(function() {
+        if (that.isAggregated(dimension)) {
+          var oldClientPossible = that.isClientSideAggrPossible();
+          that.deaggregateDimension(dimension);
+          var newClientPossible = that.isClientSideAggrPossible();
+          that.charts[chart] = chart_backup;
+          dc.registerChart(chart_backup.element);
+          that.charts[chart].element.showLegend('#'+chart+'-legend');
+          if (oldClientPossible !== newClientPossible) {
+            that.getData();
+            that.displayCharts(false);
+            that.setFilters();
+          }
+          that.charts[chart].element.render();
+        } else {
+          // Delete charts showing this dimension
+          var oldClientPossible = that.isClientSideAggrPossible();
+          that.aggregateDimension(dimension);
+          var newClientPossible = that.isClientSideAggrPossible();
+
+          dc.deregisterChart(that.charts[chart].element);
+          delete that.charts[chart];
+          $('#'+chart).empty();
+          $('#'+chart+'-legend').empty();
+          that.removeChartsWithDimension(dimension);
+
+          if (oldClientPossible !== newClientPossible) {
+            that.getData();
+            that.displayCharts(false);
+            that.setFilters();
+          }
+        }
+      });
 
       // Add the div for metadata informations
       this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);

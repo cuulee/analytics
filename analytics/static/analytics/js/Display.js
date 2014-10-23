@@ -1225,6 +1225,8 @@ var Display = {
       // Add the div for metadata informations
       this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
 
+      this.displayTip(chart);
+
       this.charts[chart].element = dc.wordCloudChart(this.charts[chart].selector)
 
         .colors(d3.scale.quantize().range(this.options.colors))
@@ -1238,7 +1240,8 @@ var Display = {
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
 
-
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
 
     /// display data
     var format = d3.format(".3s");

@@ -1354,8 +1354,8 @@ var Display = {
 
         .showLegend('#'+chart+'-legend')
 
-        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
-        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
@@ -1426,8 +1426,8 @@ var Display = {
 
         .projection(d3.geo.mercator())
 
-        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
-        .callbackZoomOut(function (nbLevels, chartID) { that.rollUp(dimension, chartID, nbLevels); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (nbLevels, chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID, nbLevels); })
 
         .setNbZoomLevels(this.charts[chart].options.nbLevels)
 
@@ -1520,8 +1520,8 @@ var Display = {
         .height(height)
         .minAngleForLabel(0.3)
 
-        .callbackZoomIn(function(el, dcChartID) { that.drillDown(dimension, el, dcChartID); })
-        .callbackZoomOut(function (dcChartID) { that.rollUp(dimension, dcChartID); })
+        .callbackZoomIn(function(el, dcChartID) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID); })
+        .callbackZoomOut(function (dcChartID) { that.rollUp(that.charts[chart].dimensions[0], dcChartID); })
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
 
@@ -1596,8 +1596,8 @@ var Display = {
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
 
-        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
-        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .margins({top: 10, right: 10, bottom: 125, left: 40})
         .renderlet(function (chart) {
@@ -1778,8 +1778,8 @@ var Display = {
         .height(height)
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
-        .callbackZoomIn(function(el, chartID) { that.drillDown(dimension, el, chartID); })
-        .callbackZoomOut(function (chartID) { that.rollUp(dimension, chartID); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .margins({top: 10, right: 10, bottom: 20, left: 40})
         .transitionDuration(500)
@@ -1843,8 +1843,8 @@ var Display = {
       d3.select(this.charts[chart].selector).append('table');
       d3.select(this.charts[chart].selector + ' table').html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
       this.charts[chart].element = dc.dataTable(this.charts[chart].selector + ' table')
-        .callbackZoomIn(function(el, dcChartID) { that.drillDown(dimension, el, dcChartID); })
-        .callbackZoomOut(function (dcChartID) { that.rollUp(dimension, dcChartID); });
+        .callbackZoomIn(function(el, dcChartID) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID); })
+        .callbackZoomOut(function (dcChartID) { that.rollUp(that.charts[chart].dimensions[0], dcChartID); });
     }
 
     this.displayLevels(chart);

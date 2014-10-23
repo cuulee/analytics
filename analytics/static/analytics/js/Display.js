@@ -1226,6 +1226,7 @@ var Display = {
       this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
 
       this.displayTip(chart);
+      this.displayPlay(chart);
 
       this.charts[chart].element = dc.wordCloudChart(this.charts[chart].selector)
 

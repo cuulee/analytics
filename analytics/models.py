@@ -16,6 +16,18 @@ class Analysis(ResourceBase):
         """ Returns the absolute url of this analysis """
         return reverse('analytics.views.analysis_detail', None, [str(self.id)])
 
+class ChartTip(models.Model):
+    CHART_TYPES = (
+        ('map', 'Map'),
+        ('pie', 'Pie chart'),
+        ('bar', 'Bar chart'),
+        ('table', 'Table'),
+        ('timeline', 'Timeline'),
+        ('wordcloud', 'Wordcloud')
+    )
+    chart_type = models.CharField(max_length=10, choices=CHART_TYPES, unique=True)
+    message = models.TextField()
+
 class AnalysisResource(CommonModelApi):
     """ Class to be used in the search API of GeoNode """
     class Meta(CommonMetaApi):

@@ -8,6 +8,7 @@ var Display = {
   schema : null,
   cube : null,
   measure : null,
+  measuresLoaded : [],
 
   /**
    * Contains the list of the slices done on the dimensions. See example for scheme of each element.
@@ -17,7 +18,8 @@ var Display = {
    *      'caption' : caption, // caption of the dimension
    *      'hierarchy' : hierarchy, // current hierarchy
    *      'membersStack' : [], // stack of all slice done on this hierarchy
-   *      'membersSelected' : [] // list of selected elements on the screen for the last level of the stack
+   *      'membersSelected' : [], // list of selected elements on the screen for the last level of the stack
+   *      'aggregate' : false, // the dimension is to aggregate
    *      'properties' : false, // do we need to get the properties for this dimension ?
    *      'crossfilter' : undefined, // crossfilter element for this dimension
    *      'crossfilterGroup' : undefined // crossfilter element for the group of this dimension
@@ -35,6 +37,7 @@ var Display = {
    *  'type' : 'map', // type of chart
    *  'element' : <dc element>, // dc.js element
    *  'dimensions' : ["geography"], // dimensions shown of the axes of the chart
+   *  'sort': "valueasc" // sorting data by value ascending("valueasc"), by value descending("valuedesc") or by key ("key")  
    *  'options' : {"geoProperty" : "geom"}, // options of the chart if needed
    *
    * @private
@@ -45,6 +48,7 @@ var Display = {
       'type' : 'map',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {"geoProperty" : undefined}
     },
     'timeline' : {
@@ -52,21 +56,23 @@ var Display = {
       'type' : 'timeline',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     },
     'rightChart' : {
-      'selector' : '#rightChart',
+      'selector' : '#rightChart1',
       'type' : 'pie',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     },
-	/*barChart*/
     'barChart' : {
-      'selector' : '#barChart',
+      'selector' : '#rightChart2',
       'type' : 'bar',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     },
     'table' : {
@@ -74,6 +80,7 @@ var Display = {
       'type' : 'table',
       'element' : undefined,
       'dimensions' : [],
+      'sort' : undefined,
       'options' : {}
     }
   },
@@ -86,7 +93,7 @@ var Display = {
   options : {
     colors : ["#E2F2FF", "#C4E4FF", "#9ED2FF", "#81C5FF", "#6BBAFF", "#51AEFF", "#36A2FF", "#1E96FF", "#0089FF", "#0061B5"],
     cloudsSelector : '#clouds',
-    zoomSelector : '#zoom',
+    zoomId : 'zoom',
     resetSelector : '#reset',
     factSelector : '#fact-selector',
     factCubesIntro : 'Cubes available:',
@@ -99,6 +106,13 @@ var Display = {
    * @private
    */
   dataCrossfilter : null,
+
+  /**
+   * Resizable columns object
+   *
+   * @private
+   */
+  resizableColumns : null,
 
   /**
    * Callback function to call when changing the cube and measure to display
@@ -115,13 +129,15 @@ var Display = {
       this.resetStack();
       this.resetWordClouds();
       this.initMetadata();
+      this.getData();
+      this.displayCharts(true);
     }
     else {
       this.setMeasure(measure);
+      this.getData();
+      this.displayCharts();
     }
 
-    this.getData();
-    this.displayCharts(true);
   },
 
   /**
@@ -203,7 +219,7 @@ var Display = {
    *
    * @private
    * @param {string} dimension
-   * @return {string} current shown level
+   * @return {int|null} current shown level
    */
   getDimensionCurrentLevel : function (dimension) {
     if (this.dimensions[dimension] === undefined) {
@@ -232,6 +248,7 @@ var Display = {
         'hierarchy' : hierarchy,
         'membersStack' : [],
         'membersSelected' : [],
+        'aggregate' : false,
         'properties' : false,
         'crossfilter' : undefined,
         'crossfilterGroup' : undefined
@@ -319,8 +336,10 @@ var Display = {
   numberOfCrossedMembers: function () {
     var nb = 1;
     for (var dimension in this.dimensions) {
-      var slice = this.getSliceFromStack(dimension);
-      nb *= Object.keys(slice.members).length
+      if (!this.isAggregated(dimension)) {
+        var slice = this.getSliceFromStack(dimension);
+        nb *= Object.keys(slice.members).length;
+      }
     }
     return nb;
   },
@@ -353,6 +372,36 @@ var Display = {
   },
 
   /**
+   * Flag the dimension whose members are to aggregate
+   *
+   * @private
+   * @param {string} dimension
+   */
+  aggregateDimension : function (dimension) {
+    this.dimensions[dimension].aggregate = true;
+  },
+
+  /**
+   * Flag the dimension whose members are to deaggregate
+   *
+   * @private
+   * @param {string} dimension
+   */
+  deaggregateDimension : function (dimension) {
+    this.dimensions[dimension].aggregate = false;
+  },
+
+  /**
+   * Indicate if a dimension is aggregated
+   *
+   * @private
+   * @param {string} dimension
+   */
+  isAggregated : function (dimension) {
+    return this.dimensions[dimension].aggregate;
+  },
+
+  /**
    * Get the crossfilter objects describing the dimension and the group for the dimension. See example for scheme.
    *
    * @example
@@ -363,9 +412,10 @@ var Display = {
    *
    * @private
    * @param {string} dimension
+   * @param {Array} [measures=[this.measure]] - list of measures we want to aggregate. By default it is only the currently selected measure.
    * @return {Object} dimension and group
    */
-  getCrossfilterDimensionAndGroup : function (dimension) {
+  getCrossfilterDimensionAndGroup : function (dimension, measures) {
 
     var that = this;
 
@@ -373,14 +423,46 @@ var Display = {
       this.dimensions[dimension].crossfilter = this.dataCrossfilter.dimension(function(d) { return d[dimension]; });
     }
 
-    if (this.dimensions[dimension].crossfilterGroup === undefined) {
-      this.dimensions[dimension].crossfilterGroup = this.dimensions[dimension].crossfilter.group().reduceSum(function(d) { return d[that.measure]; });
+    var out = {
+      "dimension" : this.dimensions[dimension].crossfilter,
+      "group" : undefined
+    };
+
+    if (measures === undefined) {
+      if (this.dimensions[dimension].crossfilterGroup === undefined) {
+        this.dimensions[dimension].crossfilterGroup = this.dimensions[dimension].crossfilter.group().reduceSum(function(d) { return d[that.measure]; });
+      }
+      out.group = this.dimensions[dimension].crossfilterGroup;
     }
 
-    return {
-      "dimension" : this.dimensions[dimension].crossfilter,
-      "group" : this.dimensions[dimension].crossfilterGroup
-    };
+    // if we have a custom list of measures, we compute the group
+    else {
+      measureToGroup = [this.measure];
+      for (var i in measures)
+        if (measureToGroup.indexOf(measures[i]) < 0)
+          measureToGroup.push(measures[i]);
+
+      out.group = this.dimensions[dimension].crossfilter.group().reduce(
+        function (p, v) {
+          for (var i in measureToGroup)
+            p[measureToGroup[i]] += v[measureToGroup[i]];
+          return p;
+        },
+        function (p, v) {
+          for (var i in measureToGroup)
+            p[measureToGroup[i]] -= v[measureToGroup[i]];
+          return p;
+        },
+        function () {
+          var p = {};
+          for (var i in measureToGroup)
+            p[measureToGroup[i]] = 0;
+          return p;
+        }
+      );
+    }
+
+    return out;
   },
 
   /**
@@ -480,7 +562,60 @@ var Display = {
           this.charts[charts[i]].element.filter(element);
         }
       }
+      // Update the colors
+      for (var chart in this.charts) {
+        if (charts.indexOf(this.charts[chart]) < 0 && this.charts[chart].type != "placeholder") {
+          if (this.charts[chart].element.colorDomain !== undefined) {
+            var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
+            this.charts[chart].element.colorDomain(this.niceDomain(crossfilterDimAndGroup.group));
+          }
+          if (this.charts[chart].element.r !== undefined) {
+            var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0], this.charts[chart].dimensions.slice(1));
+            this.charts[chart].element
+              .xAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, this.charts[chart].dimensions[1])[1]*0.1)
+              .yAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, this.charts[chart].dimensions[2])[1]*0.1);
+          }
+        }
+      }
     }
+  },
+
+  /**
+   * Play a chart's dimension, it filters the dimension member by member
+   * to be able to see easily the evolution of the dimension.
+   *
+   * @param {String} chart, id of the chart on which to play the data
+   */
+  playChart : function (chart, members, old_member) {
+    // The params members and old_member are used only for the recursion
+    var that = this;
+    var dimension = this.charts[chart].dimensions[0];
+    if (members == undefined) {
+      // retrieve all the members of the chart's dimension if the members parameter
+      // is undefined = not in the recursion
+      members = Object.keys(this.getSliceFromStack(dimension).members);
+      members.sort();
+    }
+
+    if (members.length === 0) {
+      // Exit once we've gone through all the members
+      return;
+    }
+
+    // filter the current member
+    this.setFilter(chart, dimension, members[0]);
+    if (old_member !== undefined) {
+      // unfilter the previsou one
+      this.setFilter(chart, dimension, old_member);
+      this.charts[chart].element.filter(old_member);
+    }
+    this.charts[chart].element.filter(members[0]);
+    var current_member = members[0];
+    dc.redrawAll();
+
+    // remove current member from the members list
+    members.shift();
+    setTimeout(function() { that.playChart(chart, members, current_member); }, 300);
   },
 
   /**
@@ -571,6 +706,7 @@ var Display = {
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
         text: err.message
       });
     }
@@ -599,14 +735,14 @@ var Display = {
         // get specific infos
         var geoDimension  = Query.getGeoDimension(this.schema, this.cube);
         var timeDimension = Query.getTimeDimension(this.schema, this.cube);
-        for (var geoHierarchy  in Query.getHierarchies(this.schema, this.cube, geoDimension)) break;
+        var geoHierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, geoDimension))[0];
         var geoLevels = Query.getLevels(this.schema, this.cube, geoDimension, geoHierarchy);
         var geoProperty = Query.getGeoProperty(this.schema, this.cube, geoDimension, geoHierarchy);
 
         // slice all dimensions (because they are all used in charts)
         var dimensions = Query.getDimensions(this.schema, this.cube);
         for (var dimension in dimensions) {
-          for (var hierarchy  in Query.getHierarchies(this.schema, this.cube, dimension)) break;
+          var hierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, dimension))[0];
           var properties = dimension == geoDimension;
           var levels = Query.getLevels(this.schema, this.cube, dimension, hierarchy);
           var members  = Query.getMembers(this.schema, this.cube, dimension, hierarchy, 0, properties);
@@ -620,27 +756,26 @@ var Display = {
         this.charts.map.options.nbLevels = Object.keys(geoLevels).length - 1;
         this.charts.timeline.dimensions.push(timeDimension);
         this.charts.rightChart.dimensions.push(geoDimension);
-	this.charts.barChart.dimensions.push(geoDimension);
+        this.charts.barChart.dimensions.push(geoDimension);
         this.charts.table.dimensions.push(geoDimension);
 
         // instanciate wordclouds (1 per dimension except time)
         var i = 0;
         for (var dimension in dimensions) {
-          if (dimension != timeDimension) {
-            this.charts["wordcloud"+i] = {
-              'selector' : '#wordcloud'+i,
-              'type' : 'wordcloud',
-              'element' : undefined,
-              'dimensions' : [dimension],
-              'options' : {}
-            };
-            i++;
-          }
+          this.charts["wordcloud"+i] = {
+            'selector' : '#wordcloud'+i,
+            'type' : 'wordcloud',
+            'element' : undefined,
+            'dimensions' : [dimension],
+            'options' : {}
+          };
+          i++;
         }
       }
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
         text: err.message
       });
      }
@@ -653,6 +788,7 @@ var Display = {
   resetWordClouds : function() {
     for (var chart in this.charts) {
       if (this.charts[chart].type == 'wordcloud') {
+        dc.deregisterChart(this.charts[chart].element);
         delete this.charts[chart];
         $('#'+chart).parent().remove();
       }
@@ -667,13 +803,15 @@ var Display = {
    */
   getData : function () {
     try {
-      if (this.isClientSideAggrPossible())
+      if (this.isClientSideAggrPossible()) {
         return this.getDataClientAgregates();
-      else
+      } else {
         return this.getDataServerAgregates();
+      }
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
         text: err.message
       });
     }
@@ -686,26 +824,70 @@ var Display = {
    * @return {Object} crossfilter dataset
    */
   getDataClientAgregates : function () {
-    // set cube & measure
     Query.clear();
-    Query.drill(this.cube);
-    Query.push(this.measure);
 
-    // Select first data
+    // set cube
+    Query.drill(this.cube);
+
+    // set dimensions to get
     var dimensionsList = this.getDimensions();
     var hierachiesList = [];
     for (var i in dimensionsList) {
       var dimension = dimensionsList[i];
-      var slice = this.getSliceFromStack(dimension);
-      var hierarchy = this.getDimensionHierarchy(dimension);
-      hierachiesList.push(hierarchy);
-      Query.slice(hierarchy, Object.keys(slice.members));
+
+      if (!this.isAggregated(dimension)) {
+        var slice = this.getSliceFromStack(dimension);
+        var hierarchy = this.getDimensionHierarchy(dimension);
+        hierachiesList.push(hierarchy);
+        Query.slice(hierarchy, Object.keys(slice.members));
+      } else {
+        while(this.getDimensionCurrentLevel(dimension) > 0) {
+          this.removeLastSliceFromStack(dimension);
+        }
+      }
     }
     Query.dice(hierachiesList);
 
+    // set measures
+    // (dimensions used in chart that are not in dimensionsList are measures)
+    this.measuresLoaded = [this.measure];
+    Query.push(this.measure);
+    for (var chart in this.charts) {
+      var chartDimensions = this.charts[chart].dimensions;
+      for (var i in chartDimensions) {
+        if (dimensionsList.indexOf(chartDimensions[i]) < 0) {
+          Query.push(chartDimensions[i]);
+          this.measuresLoaded.push(chartDimensions[i]);
+        }
+      }
+    }
+
+    // get data
     var data = Query.execute();
 
     return this.setCrossfilterData(data);
+  },
+
+  /**
+   * Find out whether we can drill-down on a given dimension or not
+   *
+   * @param {string} A dimension
+   * @return {boolean} True if we can drill-down on the dimension
+   */
+  isDrillPossible : function (dimension) {
+    var hierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, dimension))[0];
+    var nbLevels = Query.getLevels(this.schema, this.cube, dimension, hierarchy).length;
+    return (this.getSliceFromStack(dimension).level + 1) !== nbLevels;
+  },
+
+  /**
+   * Find out whether we can roll-up on a given dimension or not
+   *
+   * @param {string} A dimension
+   * @return {boolean} True if we can roll-up on the dimension
+   */
+  isRollPossible : function (dimension) {
+    return this.getSliceFromStack(dimension).level > 0;
   },
 
   /**
@@ -719,17 +901,33 @@ var Display = {
       "api" : Query,
       "schema" : this.schema,
       "cube" : this.cube,
-      "measure" : this.measure,
+      "measures" : [this.measure],
       "dimensions" : {}
     };
 
-    for (var dimension in this.dimensions) {
+    // set dimensions to get
+    var dimensionsList = this.getDimensions();
+    for (var i in dimensionsList) {
+      var dimension = dimensionsList[i];
       var slice = this.getSliceFromStack(dimension);
       metadata.dimensions[dimension] = {
         "hierarchy" : this.getDimensionHierarchy(dimension),
         "level" : slice.level,
         "members" : Object.keys(slice.members)
       };
+    }
+
+    // set measures
+    // (dimensions used in chart that are not in dimensionsList are measures)
+    this.measuresLoaded = [this.measure];
+    for (var chart in this.charts) {
+      var chartDimensions = this.charts[chart].dimensions;
+      for (var i in chartDimensions) {
+        if (dimensionsList.indexOf(chartDimensions[i]) < 0) {
+          metadata.measures.push(chartDimensions[i]);
+          this.measuresLoaded.push(chartDimensions[i]);
+        }
+      }
     }
 
     return this.setCrossfilterData(metadata);
@@ -766,6 +964,8 @@ var Display = {
    */
   displayChart : function (chart) {
 
+    $(this.charts[chart].selector).addClass("dc-"+this.charts[chart].type);
+
     switch(this.charts[chart].type) {
 
       case "map":
@@ -773,12 +973,12 @@ var Display = {
         break;
 
       case "pie":
-	this.displayPie(chart);
-	break;
+        this.displayPie(chart);
+        break;
 
       case "bar":
-	this.displayBar(chart);
-	break;
+        this.displayBar(chart);
+        break;
 
       case "table":
         this.displayTable(chart);
@@ -792,6 +992,292 @@ var Display = {
         this.displayWordCloud(chart);
         break;
 
+      case "bubble":
+        this.displayBubble(chart);
+        break;
+
+      case "placeholder":
+        this.displayPlaceholder(chart);
+        break;
+    }
+  },
+
+  /**
+   * Display the container for meta infos on charts
+   * @private
+   * @param  {DOMObject} DOM Object in which we will put meta infos
+   */
+  displayChartMetaContainer : function (element) {
+    $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span><span class="chart-play"></span>');
+  },
+
+  /**
+   * Display and configure the params tool
+   * @param  {String} chart id of the chart of which we want to display params tool
+   * @private
+   * @todo Update the content of the modal form to put real values in the fields and preselect current values
+   */
+  displayParams : function(chart) {
+    var that = this;
+    var el = $('<span class="btn-params btn btn-xs btn-default"><i class="fa fa-nomargin fa-cog"></i></span>');
+
+    $(this.charts[chart].selector+' .chart-meta .btn-params').replaceWith(el);
+
+    el.click(function() {
+
+        // Add dimensions to the select in the chartparams form
+        $('#chartparam-dimension').empty();
+        for (var dimension in that.dimensions) {
+          $('#chartparam-dimension').append('<option value="'+dimension+'">'+that.getDimensionCaption(dimension)+'</option>');
+        }
+
+        // Add measures to the selects in the chartparams form
+        var dimx = $('#chartparam-dimension-x').parent().parent().hide();
+        var dimy = $('#chartparam-dimension-y').parent().parent().hide();
+        var sort = $('#chartparam-sort').parent().parent().hide();
+        $('#chartparam-dimension-x').empty();
+        $('#chartparam-dimension-y').empty();
+        var measures = Query.getMesures(that.schema, that.cube);
+        for (var measure in measures) {
+          $('#chartparam-dimension-x').append('<option value="'+measure+'">'+measures[measure].caption+'</option>');
+          $('#chartparam-dimension-y').append('<option value="'+measure+'">'+measures[measure].caption+'</option>');
+        }
+
+        // autoset infos
+        $('#chartparam-type').val(that.charts[chart].type);
+        $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
+        $('#chartparam-dimension-x').val(that.charts[chart].dimensions[1]);
+        $('#chartparam-dimension-y').val(that.charts[chart].dimensions[2]);
+        $('#chartparam-sort').val(that.charts[chart].sort);
+
+        // update form dynamically depending on type
+        function updateForm(chartType, duration) {
+          $('#chartparam-dimension option').removeAttr('disabled');
+          if (chartType == 'map') {
+            $('#chartparam-dimension').val(Query.getGeoDimension(that.schema, that.cube));
+            $('#chartparam-dimension option[value!="'+Query.getGeoDimension(that.schema, that.cube)+'"]').attr('disabled', 'disabled');
+          }
+
+          if (chartType == 'bubble') {
+            dimx.slideDown(duration);
+            dimy.slideDown(duration);
+          }
+          else {
+            dimx.slideUp(duration);
+            dimy.slideUp(duration);
+          }
+
+          if (chartType == 'pie' || chartType == 'bar' || chartType == 'table')
+            sort.slideDown(duration);
+          else
+            sort.slideUp(duration);
+        }
+        updateForm($('#chartparam-type').val(), 0);
+        $('#chartparam-type').change(function() { updateForm($(this).val(), 400); });
+
+        // set callback for save
+        $('#chartparams-set').unbind('click').click(function() {
+          $('#chartparams').modal('hide');
+
+          var options = {};
+          options.dimension = $('#chartparam-dimension').val();
+          options.dimensionx = $('#chartparam-dimension-x').val();
+          options.dimensiony = $('#chartparam-dimension-y').val();
+          options.sort      = $('#chartparam-sort').val();
+          options.type      = $('#chartparam-type').val();
+
+          that.updateChart(chart, options);
+        });
+
+        // show modal
+        $('#chartparams').modal('show');
+      });
+
+  },
+
+  displayPlay : function (chart) {
+    var that = this;
+    var el = $('<span class="btn-params btn btn-xs btn-default"><i class="fa fa-nomargin fa-play"></i></span>');
+    $(this.charts[chart].selector+' .chart-meta .chart-play').replaceWith(el);
+    el.click(function () {
+      that.playChart(chart);
+    });
+  },
+
+  displayTip : function (chart) {
+    var chartType = this.charts[chart].type;
+    if (Object.keys(this.tips).indexOf(chartType) >= 0) {
+      var el = $('<span data-toggle="tooltip" class ="chart-infos" data-placement="bottom" title="'+this.tips[this.charts[chart].type]+'">'+
+        '<i class="fa fa-nomargin fa-info-circle"></i></span>');
+
+      $(this.charts[chart].selector+' .chart-meta .chart-infos').replaceWith(el);
+      el.tooltip({'container': 'body', 'html': true});
+    }
+  },
+
+  /**
+   * Display an icon whether we can drill-down or roll-up on the chart
+   * @param {string} chart Chart id
+   */
+  displayCanDrillRoll : function (chart) {
+    var dimension = this.charts[chart].dimensions[0];
+
+    var el = $(this.charts[chart].selector + ' .chart-meta .chart-levels-icons');
+    if (el.html().length === 0) {
+      el.html('<span class="fa fa-nomargin fa-caret-up"></span><span class="fa fa-nomargin fa-caret-down"></span>');
+    }
+
+    var caretDown = el.find('.fa-caret-down');
+    var caretUp = el.find('.fa-caret-up');
+
+    if (this.isRollPossible(dimension))
+      caretUp.css('color', 'inherit');
+    else
+      caretUp.css('color', '#999999');
+
+    if (this.isDrillPossible(dimension))
+      caretDown.css('color', 'inherit');
+    else
+      caretDown.css('color', '#999999');
+  },
+
+  /**
+   * Display the number of levels and the current level
+   * @param {string} chart Chart id
+   */
+  displayLevels : function (chart) {
+    var dimension = this.charts[chart].dimensions[0];
+
+    // Display the number of levels and the current level
+    var hierarchy = this.getDimensionHierarchy(dimension);
+    var nbLevels = Query.getLevels(this.schema, this.cube, dimension, hierarchy).length;
+    var currentLevel = this.getSliceFromStack(dimension).level;
+
+    $(this.charts[chart].selector + ' .chart-meta .chart-levels').html((currentLevel+1)+'/'+nbLevels);
+  },
+
+  /**
+   * Display a placeholder using the space and shows the param fa-cog
+   *
+   * @param {string} chart id
+   */
+  displayPlaceholder : function (chart) {
+    if($('.dc-'+chart+' .chart-meta').length === 0) {
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+      this.displayParams(chart);
+    }
+  },
+
+  /**
+   * Update the configuration of a chart
+   * @param  {String} chart   Chart id
+   * @param  {Object} options New config
+   * @todo implement code actually process something
+   */
+  updateChart : function (chart, options) {
+    console.log("update", chart, options);
+
+    var doRender = false;
+    var doRedraw = false;
+    var updateData = false;
+
+    // Bubble chart must have 3 dimensions
+    if (options.type == "bubble" && (!options.dimensionx || !options.dimensiony)) {
+      new PNotify({
+        'title' : 'Impossible to use a bubble chart',
+        'text': 'You must set the X and Y axes to use a bubble chart'
+      });
+    }
+    // Check if we are trying something else than a geographical dimension on the map
+    else if (options.type == "map" && options.dimension != Query.getGeoDimension(this.schema, this.cube)) {
+      new PNotify({
+        'title' : 'Impossible to use a map chart',
+        'text': 'Map can only show geographical dimensions'
+      });
+    }
+    else {
+      // Dimensions change
+      if (options.dimension != this.charts[chart].dimensions[0]) {
+        this.charts[chart].dimensions[0] = options.dimension;
+        doRedraw = true;
+      }
+      // Chart type change
+      if (this.charts[chart].type != options.type) {
+        // remove old chart
+        $(this.charts[chart].selector).empty();
+        if (this.charts[chart].type != "placeholder") {
+          dc.deregisterChart(this.charts[chart].element);
+          delete this.charts[chart].element;
+        }
+        // set new type
+        this.charts[chart].type = options.type;
+        doRender = true;
+      }
+
+      // bubble : checks X and Y dimensions
+      if (this.charts[chart].type == "bubble") {
+        if (options.dimensionx != this.charts[chart].dimensions[1]) {
+          this.charts[chart].dimensions[1] = options.dimensionx;
+          doRedraw = true;
+          if (this.measuresLoaded.indexOf(options.dimensionx) < 0)
+            updateData = true;
+        }
+        if (options.dimensiony != this.charts[chart].dimensions[2]) {
+          this.charts[chart].dimensions[2] = options.dimensiony;
+          doRedraw = true;
+          if (this.measuresLoaded.indexOf(options.dimensiony) < 0)
+            updateData = true;
+        }
+        this.charts[chart].dimensions = this.charts[chart].dimensions.slice(0, 3);
+      }
+      // not bubble = 1 dimension max
+      else {
+        this.charts[chart].dimensions = this.charts[chart].dimensions.slice(0, 1);
+      }
+    }
+
+    // Sort order change
+    if (this.charts[chart].sort != options.sort){
+      this.charts[chart].sort = options.sort;
+      doRedraw = true;
+    }
+
+    // Update data
+    if (updateData) {
+      this.getData();
+      this.displayChart(chart);
+      this.charts[chart].element.render();
+      this.displayCharts();
+    }
+    // Update display
+    else if (doRedraw || doRender) {
+      this.displayChart(chart);
+      if (doRender)
+        this.charts[chart].element.render();
+      else
+        this.charts[chart].element.redraw();
+    }
+  },
+
+  /**
+   * Remove charts showing the given dimension
+   * This keeps the params and tips
+   *
+   * @param {string} dimension
+   */
+  removeChartsWithDimension : function (dimension) {
+    for (var chart in this.charts) {
+      if (this.charts[chart].dimensions[0] === dimension) {
+        $(this.charts[chart].selector).empty();
+        if (this.charts[chart].type != "placeholder") {
+          dc.deregisterChart(this.charts[chart].element);
+          delete this.charts[chart].element;
+          this.charts[chart].dimensions = [];
+        }
+
+        this.charts[chart].type = "placeholder";
+        this.displayChart(chart);
+      }
     }
   },
 
@@ -810,24 +1296,72 @@ var Display = {
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
 
+    var chart_backup = this.charts[chart];
+
     /// create element if needed
     if (this.charts[chart].element === undefined) {
 
-      $(this.options.cloudsSelector).append('<div class="wordcloud">'+
+      $(this.options.cloudsSelector).append('<div class="wordcloud" id="'+chart+'-container">'+
           '<div class="wordcloud-title">'+this.getDimensionCaption(dimension)+'</div>'+
           '<div class="wordcloud-chart" id="'+chart+'"></div>'+
+          '<div class="wordcloud-legend" id="'+chart+'-legend"></div>'+
         '</div>');
+
+      $("#" + chart + "-container .wordcloud-title").click(function() {
+        if (that.isAggregated(dimension)) {
+          var oldClientPossible = that.isClientSideAggrPossible();
+          that.deaggregateDimension(dimension);
+          var newClientPossible = that.isClientSideAggrPossible();
+          that.charts[chart] = chart_backup;
+          dc.registerChart(chart_backup.element);
+          that.charts[chart].element.showLegend('#'+chart+'-legend');
+          if (oldClientPossible !== newClientPossible) {
+            that.getData();
+            that.displayCharts(false);
+            that.setFilters();
+          }
+          that.charts[chart].element.render();
+        } else {
+          // Delete charts showing this dimension
+          var oldClientPossible = that.isClientSideAggrPossible();
+          that.aggregateDimension(dimension);
+          var newClientPossible = that.isClientSideAggrPossible();
+
+          dc.deregisterChart(that.charts[chart].element);
+          delete that.charts[chart];
+          $('#'+chart).empty();
+          $('#'+chart+'-legend').empty();
+          that.removeChartsWithDimension(dimension);
+
+          if (oldClientPossible !== newClientPossible) {
+            that.getData();
+            that.displayCharts(false);
+            that.setFilters();
+          }
+        }
+      });
+
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+      this.displayTip(chart);
+      this.displayPlay(chart);
 
       this.charts[chart].element = dc.wordCloudChart(this.charts[chart].selector)
 
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d ? that.charts[chart].element.colors()(d) : '#ccc'; })
 
-        .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
-        .callbackZoomOut(function () { that.rollUp(dimension); })
+        .showLegend('#'+chart+'-legend')
+
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
 
     /// display data
     var format = d3.format(".3s");
@@ -841,7 +1375,7 @@ var Display = {
       .label(function (d) { return metadata.members[d.key].caption; })
 
       .title(function (d) {
-        if (metadata.members[d.key] == undefined) return (d.value ? format(d.value) : '');
+        if (metadata.members[d.key] === undefined) return (d.value ? format(d.value) : '');
         return metadata.members[d.key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
       });
   },
@@ -862,13 +1396,26 @@ var Display = {
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
-    var spatialData = this.transformSpatialMetadata(metadata.members, this.charts[chart].options.geoProperty);
 
     /// create element if needed
     if (this.charts[chart].element === undefined) {
 
+      var geoHierarchy = Object.keys(Query.getHierarchies(this.schema, this.cube, dimension))[0];
+      var geoLevels = Query.getLevels(this.schema, this.cube, dimension, geoHierarchy);
+      var geoProperty = Query.getGeoProperty(this.schema, this.cube, dimension, geoHierarchy);
+
+      this.charts[chart].options.geoProperty = geoProperty;
+      this.charts[chart].options.nbLevels = Object.keys(geoLevels).length - 1;
+
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
+
+      this.displayParams(chart);
+      this.displayTip(chart);
+      this.displayPlay(chart);
 
       this.charts[chart].element = dc.geoChoroplethChart(this.charts[chart].selector)
         .width(width)
@@ -879,24 +1426,27 @@ var Display = {
 
         .projection(d3.geo.mercator())
 
-        .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
-        .callbackZoomOut(function () { that.rollUp(dimension); })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (nbLevels, chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID, nbLevels); })
 
         .setNbZoomLevels(this.charts[chart].options.nbLevels)
 
-        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
+        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
 
-        .showLegend('#legend');
+        var div = d3.select(this.charts[chart].selector).append("div")
+          .attr("id", this.options.zoomId);
 
-        d3.select(this.options.zoomSelector).append("a")
-            .attr("class","btn btn-primary fa fa-search-plus")
-            .attr("href","#")
-            .on("click", function () { that.charts[chart].element.addScale(1.35, 700); return false; });
-        d3.select(this.options.zoomSelector).append("a")
-            .attr("class","btn btn-primary fa fa-search-minus")
-            .attr("href","#")
-            .on("click", function () { that.charts[chart].element.addScale(1/1.35, 700); return false; });
+        div.append("a")
+          .attr("class","btn btn-primary fa fa-search-plus")
+          .attr("href","#")
+          .on("click", function () { that.charts[chart].element.addScale(1.35, 700); return false; });
+        div.append("a")
+          .attr("class","btn btn-primary fa fa-search-minus")
+          .attr("href","#")
+          .on("click", function () { that.charts[chart].element.addScale(1/1.35, 700); return false; });
     }
+
+    var spatialData = this.transformSpatialMetadata(metadata.members, this.charts[chart].options.geoProperty);
 
     /// update layers
     var layers = this.charts[chart].element.geoJsons();
@@ -916,6 +1466,9 @@ var Display = {
     this.charts[chart].element.overlayGeoJson(spatialData, "geolayer-"+metadata.level, function (d) {
       return d.id;
     });
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
 
     /// display data
     var format = d3.format(".3s");
@@ -945,10 +1498,21 @@ var Display = {
 
     var that = this;
 
+    /// get data
+    var dimension = this.charts[chart].dimensions[0];
+    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
+    var metadata = this.getSliceFromStack(dimension);
+
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
+
+      this.displayParams(chart);
+      this.displayTip(chart);
+      this.displayPlay(chart);
 
       this.charts[chart].element = dc.pieChart(this.charts[chart].selector)
         .ordering(function (d) { return d.value; })
@@ -956,26 +1520,40 @@ var Display = {
         .height(height)
         .minAngleForLabel(0.3)
 
+        .callbackZoomIn(function(el, dcChartID) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID); })
+        .callbackZoomOut(function (dcChartID) { that.rollUp(that.charts[chart].dimensions[0], dcChartID); })
+
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
 
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; });
-
     }
 
-    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
+    switch(this.charts[chart].sort) {
+      case "key":
+      this.charts[chart].element.ordering(function (d) { return  d.key;   });
+      break;
 
-    var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
+      case "valueasc":
+      this.charts[chart].element.ordering(function (d) { return  d.value; });
+      break;
+
+      default: // valuedesc
+      this.charts[chart].element.ordering(function (d) { return -d.value; });
+      this.charts[chart].sort = "valuedesc";
+      break;
+    }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
 
     var format = d3.format(".3s");
-
-
 
     this.charts[chart].element
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
       .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
-      .label(function (d) { return metadata.members[d.key].caption; })
+      .label(function (d) { if(metadata.members[d.key] !== undefined) return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
@@ -994,7 +1572,19 @@ var Display = {
   displayBar : function (chart) {
     var that = this;
 
+    // get data
+    var dimension = this.charts[chart].dimensions[0];
+    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
+    var metadata = this.getSliceFromStack(dimension);
+
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+
+      this.displayParams(chart);
+      this.displayTip(chart);
+      this.displayPlay(chart);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
@@ -1002,42 +1592,56 @@ var Display = {
       this.charts[chart].element = dc.barChart(this.charts[chart].selector)
         .width(width)
         .height(height)
+
+        .colors(d3.scale.quantize().range(this.options.colors))
+        .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
+
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
+
         .margins({top: 10, right: 10, bottom: 125, left: 40})
-	.renderlet(function (chart) {
+        .renderlet(function (chart) {
                     chart.selectAll("g.x text")
                       .attr('dx', '-50')
                       .attr('transform', "translate(-20,0)")
                       .attr('transform', "rotate(-50)");
                 })
-	.transitionDuration(500)
+        .transitionDuration(500)
         .centerBar(false)
         .gap(1)
-	.elasticY(true)
-	.elasticX(true)
-    
-        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
-	
-        .colors(d3.scale.quantize().range(this.options.colors))
-        .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; });
-      }
+        .elasticY(true)
+        .elasticX(true)
 
-    // get data
-    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
+        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
+    }
 
-    var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
-    
-    // We consider that the keys are sortable data
-    var keys = d3.keys(metadata.members).sort();	
-    var elementsX = d3.scale.ordinal().domain(keys);
+    // Generate sorted keys
+    switch(this.charts[chart].sort) {
+      case "valueasc":
+        var keys = crossfilterDimAndGroup.group.order(function(d) { return -d; }).top(Infinity).map(function(d) { return d.key; });
+      break;
+
+      case "valuedesc":
+        var keys = crossfilterDimAndGroup.group.order(function(d) { return d; }).top(Infinity).map(function(d) { return d.key; });
+      break;
+
+      default: // key
+        var keys = d3.keys(metadata.members).sort();
+        this.charts[chart].sort = "key";
+      break;
+    }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
+
     var format = d3.format(".3s");
-    
+
     this.charts[chart].element
-      .x(elementsX)
+      .x(d3.scale.ordinal().domain(keys))
       .xUnits(dc.units.ordinal)
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
-     // .colorDomain(this.niceDomain(crossfilterDimAndGroup.group));
-     // .label(function (d) { return metadata.members[d.key].caption; })
+      .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
@@ -1046,6 +1650,102 @@ var Display = {
     this.charts[chart].element.xAxis().tickFormat(function(d) {return metadata.members[d].caption;});
     this.charts[chart].element.yAxis().tickFormat(function(d) { return format(d);});
   },
+
+
+  /**
+   * Display a bubble chart
+   *
+   * @private
+   * @param {string} chart id of the chart in the charts attribute
+   */
+  displayBubble : function (chart) {
+    var that = this;
+
+    // dimensions
+    var measures = Query.getMesures(this.schema, this.cube);
+    var extraMeasures = this.charts[chart].dimensions.slice(1);
+    var dimensions = [this.charts[chart].dimensions[0], this.charts[chart].dimensions[1], this.charts[chart].dimensions[2], this.measure];
+
+    // get data
+    var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimensions[0], extraMeasures);
+    var metadata = this.getSliceFromStack(dimensions[0]);
+    var format = d3.format(".3s");
+
+    if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+      this.displayParams(chart);
+      this.displayTip(chart);
+      this.displayPlay(chart);
+
+      var width = $(this.charts[chart].selector).width();
+      var height = $(this.charts[chart].selector).height();
+
+      this.charts[chart].element = dc.bubbleChart(this.charts[chart].selector)
+        .width(width)
+        .height(height)
+        .margins({top: 0, right: 0, bottom: 30, left: 45})
+
+        .elasticY(true)
+        .elasticX(true)
+        .elasticRadius(true)
+
+        .renderHorizontalGridLines(true)
+        .renderVerticalGridLines(true)
+
+        .colors(d3.scale.quantize().range(this.options.colors))
+        .colorCalculator(function (d) { return d.value[dimensions[3]] ? that.charts[chart].element.colors()(d.value[dimensions[3]]) : '#ccc'; })
+
+        .maxBubbleRelativeSize(0.075)
+
+        .callbackZoomIn(function(el, chartID) { that.drillDown(dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(dimensions[0], chartID); })
+
+        .on("filtered", function (ch, filter) { that.setFilter(chart, dimensions[0], filter); });
+
+      this.charts[chart].element.yAxis().tickFormat(function (s) { return format(s); });
+      this.charts[chart].element.xAxis().tickFormat(function (s) { return format(s); });
+    }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
+    this.charts[chart].element
+      .dimension(crossfilterDimAndGroup.dimension)
+      .group(crossfilterDimAndGroup.group)
+
+      .keyAccessor(function (p)         { return p.value[dimensions[1]]; })
+      .valueAccessor(function (p)       { return p.value[dimensions[2]]; })
+      .radiusValueAccessor(function (p) { return p.value[dimensions[3]]; })
+
+      .colorDomain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[3]))
+
+      .x(d3.scale.linear().domain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[1])))
+      .y(d3.scale.linear().domain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[2])))
+      .r(d3.scale.linear().domain(this.niceDomain(crossfilterDimAndGroup.group, dimensions[3])))
+
+      .xAxisLabel(measures[dimensions[1]].caption)
+      .yAxisLabel(measures[dimensions[2]].caption)
+
+      .xAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, dimensions[1])[1]*0.1)
+      .yAxisPadding(this.niceDomain(crossfilterDimAndGroup.group, dimensions[2])[1]*0.1)
+
+      .minRadiusWithLabel(14)
+
+      .label(function (d) { if(metadata.members[d.key] !== undefined) return metadata.members[d.key].caption; })
+      .title(function (d) {
+        var key = d.key ? d.key : d.data.key;
+        if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
+        var out = metadata.members[key].caption + "\n" +
+                  measures[dimensions[1]].caption + ": " + (d.value[dimensions[1]] ? format(d.value[dimensions[1]]) : 0) + "\n";
+        if (dimensions[2] != dimensions[1])
+          out +=  measures[dimensions[2]].caption + ": " + (d.value[dimensions[2]] ? format(d.value[dimensions[2]]) : 0) + "\n";
+        if (dimensions[3] != dimensions[1] && dimensions[3] != dimensions[2])
+          out +=  measures[dimensions[3]].caption + ": " + (d.value[dimensions[3]] ? format(d.value[dimensions[3]]) : 0) + "\n";
+        return out;
+      });
+  },
+
 
   /**
    * Display a timeline
@@ -1064,6 +1764,11 @@ var Display = {
 
     /// display element if needed
     if (this.charts[chart].element === undefined) {
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+      this.displayTip(chart);
+      this.displayPlay(chart);
 
       var width = $(this.charts[chart].selector).width() - 30;
       var height = $(this.charts[chart].selector).height();
@@ -1071,9 +1776,10 @@ var Display = {
       this.charts[chart].element = dc.barChart(this.charts[chart].selector)
         .width(width)
         .height(height)
-
-        .callbackZoomIn(function(el) { that.drillDown(dimension, el); })
-        .callbackZoomOut(function () { that.rollUp(dimension); })
+        .colors(d3.scale.quantize().range(this.options.colors))
+        .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
+        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .margins({top: 10, right: 10, bottom: 20, left: 40})
         .transitionDuration(500)
@@ -1084,6 +1790,9 @@ var Display = {
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
 
     crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
 
@@ -1098,7 +1807,7 @@ var Display = {
 
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
-
+      .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
@@ -1118,10 +1827,50 @@ var Display = {
    */
   displayTable : function (chart) {
     var that = this;
+
+    /// get data
+    var dimension = this.charts[chart].dimensions[0];
+
     if (this.charts[chart].element === undefined) {
-      d3.select(this.charts[chart].selector).html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
-      this.charts[chart].element = dc.dataTable(this.charts[chart].selector);
+      // Add the div for metadata informations
+      this.displayChartMetaContainer(d3.select(this.charts[chart].selector).append("div")[0]);
+
+      this.displayParams(chart);
+      this.displayTip(chart);
+      this.displayPlay(chart);
+
+      d3.select(this.charts[chart].selector).attr('class', 'dc-chart');
+      d3.select(this.charts[chart].selector).append('table');
+      d3.select(this.charts[chart].selector + ' table').html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
+      this.charts[chart].element = dc.dataTable(this.charts[chart].selector + ' table')
+        .callbackZoomIn(function(el, dcChartID) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID); })
+        .callbackZoomOut(function (dcChartID) { that.rollUp(that.charts[chart].dimensions[0], dcChartID); });
     }
+
+    this.displayLevels(chart);
+    this.displayCanDrillRoll(chart);
+
+    switch(this.charts[chart].sort) {
+        case "key":
+          this.charts[chart].element
+            .order(d3.ascending)
+            .sortBy(function(d) {return d.key; });
+        break;
+
+        case "valueasc":
+          this.charts[chart].element
+            .order(d3.descending)
+            .sortBy(function(d) { return -d.value; });
+        break;
+
+        default: // valuedesc
+          this.charts[chart].element
+            .order(d3.descending)
+            .sortBy(function(d) { return d.value; });
+          this.charts[chart].sort = "valuedesc";
+        break;
+    }
+
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(this.charts[chart].dimensions[0]);
     var metadata = this.getSliceFromStack(this.charts[chart].dimensions[0]);
     var format = d3.format(".3s");
@@ -1129,8 +1878,6 @@ var Display = {
     this.charts[chart].element
         .dimension(crossfilterDimAndGroup.group)
         .group(function(d){return "";})
-        .order(d3.descending)
-        .sortBy(function(d) { return d.value; })
         .size(Infinity)
         .columns([
           function(d){
@@ -1141,7 +1888,8 @@ var Display = {
             return metadata.members[key].caption;
           },
           function(d){ return (d.value ? format(d.value) : 0); }
-         ]);
+         ])
+        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
   },
 
   /**
@@ -1149,14 +1897,23 @@ var Display = {
    *
    * @private
    * @param {Object} crossfilterGroup - group of which you want a nice domain
+   * @param {String} [measure] - name of the nested value accessor in `d.value`. Needed for group with more than 1 aggregated measure.
+   * @return {Array} [min, max] rounded
    */
-  niceDomain : function (crossfilterGroup) {
-    var min = crossfilterGroup.order(function (d) {return -d;}).top(1)[0];
-    var max = crossfilterGroup.orderNatural(). top(1)[0];
+  niceDomain : function (crossfilterGroup, measure) {
+    function getVal(d) {
+      if (typeof measure == "undefined")
+        return d;
+      else
+        return d[measure];
+    }
 
-    if (min.value != undefined && max.value != undefined) {
-      min = min.value;
-      max = max.value;
+    var min = crossfilterGroup.order(function (d) {return -getVal(d);}).top(1)[0];
+    var max = crossfilterGroup.order(function (d) {return  getVal(d);}).top(1)[0];
+
+    if (getVal(min.value) !== undefined && getVal(max.value) !== undefined) {
+      min = getVal(min.value);
+      max = getVal(max.value);
       var nbDigitsMax = Math.floor(Math.log(max)/Math.LN10+1);
       min = Math.floor(min / Math.pow(10, nbDigitsMax - 2))*Math.pow(10, nbDigitsMax - 2);
       max = Math.ceil(max / Math.pow(10, nbDigitsMax - 2))*Math.pow(10, nbDigitsMax - 2);
@@ -1205,52 +1962,23 @@ var Display = {
         switch(this.charts[chart].type) {
           case "pie":
             this.charts[chart].element
-              .radius(0) // reset radius for pie so that it's recomputed
-              .width(width - 30)
-              .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
-            break;
-
+              .radius(0); // reset radius for pie so that it's recomputed
           case "bar":
             this.charts[chart].element
-           //   .radius(0) // reset radius for bar so that it's recomputed
               .width(width - 30)
               .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
             break;
 
-          case "map":
+          default:
             this.charts[chart].element
               .width(width)
               .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
-            break;
-
-          // timeline will take the remaining space in it's container
-          case "timeline":
-            var domEl = $(this.charts[chart].selector);
-            domEl.css('height', 'auto'); // remove css
-            height = domEl.parent().height() - 10; // future height
-            domEl.parent().children().each(function () {
-              if (!$(this).is(domEl)) height -= $(this).height(); // remote siblings height
-            });
-            this.charts[chart].element
-              .width(width)
-              .height(height);
-
-            if (render)
-              this.charts[chart].element.render();
             break;
         }
+        if (render)
+          this.charts[chart].element.render();
       }
     }
-
   },
 
   /**
@@ -1270,7 +1998,18 @@ var Display = {
 
     var that = this;
     $(window).on('resizeend', function () { return that.resizeCharts(true); });
-  
+
+    // init column resize
+    $("#columns").resizableColumns();
+    this.resizableColumns = $("#columns").data('resizableColumns');
+
+    // restore columns widths
+    if (typeof this.options.columnWidths != "undefined") {
+      this.resizableColumns.restoreColumnWidths(this.options.columnWidths);
+      delete this.options.columnWidths;
+    }
+
+    $(window).on('column:resize:stop', function () { return that.resizeCharts(true); });
   },
 
   /**
@@ -1281,16 +2020,20 @@ var Display = {
 
     this.initMeasure();
     this.initMetadata();
-    this.getData();
-    this.displayCharts(true);	
     this.initResize();
+    this.getData();
+    this.displayCharts(true);
 
-    d3.select(this.options.resetSelector).append("a")
-        .attr("class","btn btn-primary fa fa-refresh")
-        .attr("href","#")
-        .text(" Reset Filters")
-        .on("click", function () {
+    var that = this;
+
+    d3.select(this.options.resetSelector).on("click", function () {
           dc.filterAll();
+          for (var chart in that.charts) {
+            var crossfilterDimAndGroup = that.getCrossfilterDimensionAndGroup(that.charts[chart].dimensions[0]);
+            if (that.charts[chart].element.colorDomain !== undefined) {
+              that.charts[chart].element.colorDomain(that.niceDomain(crossfilterDimAndGroup.group));
+            }
+          }
           dc.redrawAll();
           return false;
         }
@@ -1304,8 +2047,9 @@ var Display = {
    * @private
    * @param {string} dimension id of the dimension on which we want to drill down
    * @param {string} member id of the member on which we want to drill down
+   * @param {string} dcChartID id of the dc chart on which the evenement was called
    */
-  drillDown : function (dimension, member) {
+  drillDown : function (dimension, member, dcChartID) {
     try {
       var hierarchy = this.getDimensionHierarchy(dimension);
       var oldLevel = this.getDimensionCurrentLevel(dimension);
@@ -1320,6 +2064,14 @@ var Display = {
         // add slice to stack
         this.addSliceToStack(dimension, '', hierarchy, newLevel, newMembers, true);
 
+        var that = this;
+        this.getChartsUsingDimension(dimension).forEach(function (chart) {
+          if (that.charts[chart].element._onZoomIn !== undefined
+              && that.charts[chart].element.chartID() !== dcChartID) {
+            that.charts[chart].element._onZoomIn(member);
+          }
+        });
+
         // reset filter on charts using this dimension
         this.filterAllChartsUsingDimension(dimension);
         this.getData();
@@ -1328,6 +2080,7 @@ var Display = {
     } catch(err) {
       new PNotify({
         title: 'An error occured',
+        type: 'error',
           text: err.message
       });
     }
@@ -1339,13 +2092,31 @@ var Display = {
    *
    * @private
    * @param {string} dimension id of the dimension on which we want to roll up
+   * @param {string} dcChartID id of the dc chart on which the evenement was called
+   * @param {integer} nbLevels number of levels to roll up, 1 by default
    */
-  rollUp : function (dimension) {
+  rollUp : function (dimension, dcChartID, nbLevels) {
+
+    if (nbLevels === undefined) {
+      nbLevels = 1;
+    }
 
     // do not allow full projection of a dimension
     if (this.getDimensionCurrentLevel(dimension) > 0) {
-      // remove last slice
-      this.removeLastSliceFromStack(dimension);
+
+      for (var i = 1; i <= nbLevels; i++) {
+        // remove last slice
+        this.removeLastSliceFromStack(dimension);
+
+
+        var that = this;
+        this.getChartsUsingDimension(dimension).forEach(function (chart) {
+          if (that.charts[chart].element._onZoomOut !== undefined
+              && that.charts[chart].element.chartID() !== dcChartID) {
+            that.charts[chart].element._onZoomOut();
+          }
+        });
+      }
 
       // reset filter on charts using this dimension
       this.filterAllChartsUsingDimension(dimension);
@@ -1368,6 +2139,7 @@ var Display = {
     this.schema = state.schema;
     this.cube = state.cube;
     this.measure = state.measure;
+    this.options.columnWidths = state.columnWidths;
 
     // list charts
     for (var chartID in state.charts) {
@@ -1415,6 +2187,7 @@ var Display = {
       "cube": this.cube,
       "measure": this.measure,
       "charts" : {},
+      "columnWidths" : this.resizableColumns.saveColumnWidths(),
       "dimensions" : {}
     };
 
@@ -1453,17 +2226,15 @@ var Display = {
    *
    * - resetSelector (#reset) : reset filters button selector
    * - cloudsSelector (#cloud) : list of word clouds CSS selector
-   * - zoomSelector (#zoom) : zoom buttons for map CSS selector
    * - factSelector (#facts) : facts selector CSS selector
+   * - zoomId (zoom) : zoom buttons for map CSS selector
    * - factCubesIntro (Cubes available:) : Introduction of the list of cubes
    * - factMeasuresIntro (Measures available:) : Introdcution of the list of measures
    *
    * - charts.map (#map) : map chart CSS selector
    * - charts.timeline (#timeline) : timeline chart CSS selector
    * - charts.rightChart (#rightChart) : right chart CSS selector
-
    * - charts.barChart (#barChart) : bar chart CSS selector
-
    * - charts.table (#table) : table chart CSS selector
    *
    * @public
@@ -1473,7 +2244,7 @@ var Display = {
     this.options.colors            = options.colors            || this.options.colors;
     this.options.resetSelector     = options.resetSelector     || this.options.resetSelector;
     this.options.cloudsSelector    = options.cloudsSelector    || this.options.cloudsSelector;
-    this.options.zoomSelector      = options.zoomSelector      || this.options.zoomSelector;
+    this.options.zoomId            = options.zoomId            || this.options.zoomId;
     this.options.factSelector      = options.factSelector      || this.options.factSelector;
     this.options.factCubesIntro    = options.factCubesIntro    || this.options.factCubesIntro;
     this.options.factMeasuresIntro = options.factMeasuresIntro || this.options.factMeasuresIntro;

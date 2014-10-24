@@ -11,6 +11,16 @@ var FactSelector = {
   cube : null,
 
   /**
+   * Id of the cube with a measure displayed
+   */
+  displayedCube : null,
+
+  /**
+   * Id of the measure displayed
+   */
+  measure : null,
+
+  /**
    *
    */
   cubes : [],
@@ -95,10 +105,10 @@ var FactSelector = {
     this.cubes.data = this.data;
 
     if (dropdown) {
-      this.displayDropdown(this.cubes, function(d) { that.selectCube(d); })
+      this.displayDropdown(this.cubes, function(d) { that.selectCube(d); });
     }
     else {
-      this.displayButtons(this.cubes, function(d) { that.selectCube(d); })
+      this.displayButtons(this.cubes, function(d) { that.selectCube(d); });
     }
   },
 
@@ -116,7 +126,7 @@ var FactSelector = {
     this.measures.data = this.data[cubeID].measures;
 
     // display with buttons
-    this.displayButtons(this.measures, function(d) { that.selectMeasure(d); })
+    this.displayButtons(this.measures, function(d) { that.selectMeasure(d); });
 
     if (this.measures.container.width() + this.cubes.container.width() > this.container.width()) {
       if (this.cubes.type != 'dropdown') {
@@ -130,7 +140,15 @@ var FactSelector = {
         this.displayDropdown(this.measures, function(d) { that.selectMeasure(d); });
       }
     }
-
+    else {
+      if (this.cubes.type === 'dropdown') {
+        this.showCubes(false);
+        if (this.measures.container.width() + this.cubes.container.width() > this.container.width()) {
+          this.showCubes(true);
+        }
+        this.setSelectedCube(this.cube);
+      }
+    }
   },
 
 
@@ -197,20 +215,22 @@ var FactSelector = {
 
     element.list = $('<ul '+listClass+'></ul>');
 
-    for (elID in element.data) {
+    var useCallback = function() { callback($(this).attr('data-id')); return false; };
+
+    for (var elID in element.data) {
 
       if (addLinks) {
         element.list.append(
           $('<li></li>').append(
             $('<a'+linkClass+' href="#" data-id="'+elID+'">'+element.data[elID].caption+'</a>')
-            .click(function() { callback($(this).attr('data-id')); return false; })
+            .click(useCallback)
           )
         );
       }
       else {
         element.list.append(
           $('<li '+linkClass+' data-id="'+elID+'">'+element.data[elID].caption+'</li>')
-          .click(function() { callback($(this).attr('data-id')); return false; })
+          .click(useCallback)
         );
       }
 
@@ -236,6 +256,9 @@ var FactSelector = {
     this.cube = cubeID;
     this.setSelectedElement(this.cubes, cubeID);
     this.showMeasures(cubeID);
+    if (this.cube === this.displayedCube) {
+      this.setSelectedMeasure(this.measure);
+    }
   },
 
   /**
@@ -246,6 +269,8 @@ var FactSelector = {
    */
   setSelectedMeasure : function (measureID) {
     this.setSelectedElement(this.measures, measureID);
+    this.displayedCube = this.cube;
+    this.measure = measureID;
   },
 
   /**

@@ -18,15 +18,16 @@
 {% block middle %}
 
     {% include "analytics/_save_form.html" %}
+    {% include "analytics/_option_form.html" %}
 
     <div id="toolbox">
         <div class="pull-right">
 
             {% if not analysis %}
-                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis" %}</a>
+                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis" %}</a>
             {% else %}
-                <a id="analysis-update" class="btn btn-primary">{% trans "Save Analysis" %}</a>
-                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis as" %}</a>
+                <a id="analysis-update" class="btn btn-primary" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis" %}</a>
+                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis as" %}</a>
             {% endif %}
 
             <a id="resize" class="btn btn-default fa fa-arrows-v"></a>
@@ -35,28 +36,22 @@
         <div id="fact-selector">&nbsp;</div>
     </div>
 
-    <div class="chart-columns" id="left-pane">
-        <div id="clouds"></div>
-    </div>
+    <div id="columns">
+      <div class="chart-columns" id="left-pane">
+          <a id="reset" class="btn btn-primary btn-sm fa fa-refresh" href="#">  Reset Filters</a>
+          <div id="clouds"></div>
+      </div>
 
-    <div class="chart-columns" id="middle-pane">
-        <div id="map"></div>
-        <table id="map-utils">
-            <tr>
-                <td id="legend"></td>
-                <td class="buttons">
-                    <span id="reset"></span>
-                    <span id="zoom"></span>
-                </td>
-            </tr>
-        </table>
-        <div id="timeline"></div>
-    </div>
+      <div class="chart-columns" id="middle-pane">
+          <div id="map"></div>
+          <div id="timeline"></div>
+          <div id="table"></div>
+      </div>
 
-    <div class="chart-columns" id="right-pane">
-        <div id="rightChart"></div>
-	<div id="barChart"></div>
-        <table id="table"></table>
+      <div class="chart-columns" id="right-pane">
+          <div id="rightChart1"></div>
+          <div id="rightChart2"></div>
+      </div>
     </div>
 
 {% endblock %}
@@ -75,10 +70,17 @@
 <script src="{{ STATIC_URL }}/analytics/js/Save.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/QueryAPI.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
 <script>
   Query.queryAPI = new QueryAPI();
   var headerShown = true;
   var paddingTop = null;
+
+  Display.tips = {
+    {% for tip in chart_tips %}
+      '{{ tip.chart_type }}' : '{{ tip.message|linebreaksbr }}',
+    {% endfor %}
+  }
 
   $("#resize").click(function() {
     if (headerShown) {
@@ -104,10 +106,10 @@
       Save.save(this, Display.getState());
     });
     {% if config %}
-      Display.setState(JSON.parse({{ config|safe }}));
+      Display.setState(JSON.parse({{ config|safe|removetags:"script" }}));
     {% endif %}
   {% else %}
-    Display.setState(JSON.parse({{ analysis.data|safe }}));
+    Display.setState(JSON.parse({{ analysis.data|safe|removetags:"script" }}));
     var analysisid = {{ analysis.id }};
     $("#analysis_submit").click(function () {
       Save.save(this, Display.getState());

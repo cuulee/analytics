@@ -21,7 +21,7 @@ from geonode.people.forms import ProfileForm
 from geonode.security.views import _perms_info_json
 from geonode.documents.models import get_related_documents
 
-from analytics.models import Analysis
+from analytics.models import Analysis, ChartTip
 from analytics.forms import AnalysisForm
 
 import json
@@ -51,7 +51,7 @@ def new_analysis(request, template='analytics/analysis_view.html'):
         config = analysis_obj.data
         return render(request, template, {'config': config})
 
-    return render(request, template, {})
+    return render(request, template, {'chart_tips' : ChartTip.objects.all()})
 
 def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
     """ The view that show the analytics main viewer. """
@@ -59,7 +59,8 @@ def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
         analysis_obj = _resolve_analysis(request, analysisid, 'base.view_resourcebase', _PERMISSION_MSG_VIEW)
 
         return render(request, template, {
-            'analysis' : analysis_obj
+            'analysis' : analysis_obj,
+            'chart_tips' : ChartTip.objects.all()
         })
     except PermissionDenied:
         if not request.user.is_authenticated():

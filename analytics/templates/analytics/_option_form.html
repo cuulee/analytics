@@ -1,0 +1,66 @@
+{% load i18n %}
+
+<div class="modal fade" id="chartparams" style="display:none;">
+  <div class="modal-dialog modal-content">
+    <div class="modal-header">
+      <a class="close" data-dismiss="modal">×</a>
+      <h3>{% trans "Chart parameters" %}</h3>
+    </div>
+    <div class="modal-body modal-body form-horizontal">
+
+      <div class="form-group">
+        <label for="chartparam-type" class="col-sm-3 control-label">{% trans "Type" %}:</label>
+        <div class="col-sm-9">
+          <select id="chartparam-type">
+            <option value="map">Chropleth map (1D)</option>
+            <option value="pie">Pie chart (1D)</option>
+            <option value="bar">Bar chart (1D)</option>
+            <option value="bubble">Bubble chart (3D)</option>
+            <option value="table">Table (1D)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="chartparam-dimension" class="col-sm-3 control-label">{% trans "Dimension" %}:</label>
+        <div class="col-sm-9">
+          <select id="chartparam-dimension">
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="chartparam-dimension-x" class="col-sm-3 control-label">{% trans "X axis" %}:</label>
+        <div class="col-sm-9">
+          <select id="chartparam-dimension-x">
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="chartparam-dimension-y" class="col-sm-3 control-label">{% trans "Y axis" %}:</label>
+        <div class="col-sm-9">
+          <select id="chartparam-dimension-y">
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="chartparam-sort" class="col-sm-3 control-label">{% trans "Sort by" %}:</label>
+        <div class="col-sm-9">
+          <select id="chartparam-sort">
+            <option value="key">Alphabetical order</option>
+            <option value="valuedesc">Value (desc)</option>
+            <option value="valueasc">Value (asc)</option>
+          </select>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <a href="#" class="btn btn-default" data-dismiss="modal">{% trans "Cancel" %}</a>
+      <a href="#" class="btn btn-primary" id="chartparams-set">{% trans "Update chart" %}</a>
+    </div>
+
+  </div>
+</div>

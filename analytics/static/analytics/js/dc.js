@@ -6562,6 +6562,24 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
 
     var _nbZoomLevels = 0;
 
+    //Drag the map.
+    var m0,o0,m1,o1,scale;
+    var drag = d3.behavior.drag()
+         .on("dragstart",function(){
+            m0 = [d3.event.sourceEvent.pageX,d3.event.sourceEvent.pageY];
+            o0 = [-parseFloat(parseTransform(_chart.layers().attr("transform")).translate[0]),-parseFloat(parseTransform(_chart.layers().attr("transform")).translate[1])];
+            scale = [parseFloat(parseTransform(_chart.layers().attr("transform")).scale[0]),parseFloat(parseTransform(_chart.layers().attr("transform")).scale[1])];
+         })
+          .on("drag",function(){
+              if(m0){
+                  m1 = [d3.event.sourceEvent.pageX,d3.event.sourceEvent.pageY];
+                  o1 = [-(o0[0]+m0[0]-m1[0]),-(o0[1]+m0[1]-m1[1])];
+                  parseTransform(_chart.layers().attr("transform")).translate[0] = o1[0];
+                  parseTransform(_chart.layers().attr("transform")).translate[1] = o1[1];
+               }
+            setTransform(scale,[o1[0],o1[1]],0);
+            });
+
     _chart.layers = function() {
         return _chart.svg().select("g.layers");
     };
@@ -6572,8 +6590,8 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
             .on('mousewheel', function (d) { _chart.onMouseWheel(d, false, true); })
             .on("DOMMouseScroll", function (d) { _chart.onMouseWheel(d, false, true); }) // older versions of Firefox
             .on("wheel", function (d) { _chart.onMouseWheel(d, false, true); }) // newer versions of Firefox
-            .call(d3.behavior.drag().on("drag", panMap))
-          .append("g").attr("class", "layers");
+            .call(drag)
+            .append("g").attr("class", "layers");
 
         for (var layerIndex = 0; layerIndex < _geoJsons.length; ++layerIndex) {
             var regions = _chart.layers().append("g")

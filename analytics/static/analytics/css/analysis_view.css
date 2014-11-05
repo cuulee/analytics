@@ -216,6 +216,10 @@ table.dc-chart .dc-table-group {
 	display: none;
 }
 
+.tooltip-inner {
+  text-align: left;
+}
+
 /***** SAVE *****/
 
 #abstract-save {

@@ -1,0 +1,34 @@
+{% load i18n %}
+
+<div class="modal fade" id="modal_analysis_login" style="display:none">
+  <form id="login_form" accept-charset="UTF-8" method="post" class="modal-form" action="{% url 'account_ajax_login' %}">
+    <div class="modal-dialog modal-content">
+
+    <div class="modal-header">
+      <a class="close" data-dismiss="modal">×</a>
+      <h3>{% trans "Login" %}</h3>
+    </div>
+    <div class="modal-body" id="permissions-body" >
+      <div class="control-group">
+        <label class="control-label"><strong>{% trans "Username" %}:</strong></label>
+        <div class="controls">
+          <input type="text" name="username" class="user-select" id="username-login">
+          </input>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="control-label"><strong>{% trans "Password" %}:</strong></label>
+        <div class="controls">
+          <input type="password" name="password" class="user-select" id="username-login">
+          </input>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a href="#" class="btn btn-default" data-dismiss="modal">{% trans "Cancel" %}</a>
+      <a href="#" class="btn btn-primary" id="login-submit">{% trans "Save" %}</a>
+    </div>
+    </div>
+  </form>
+</div>

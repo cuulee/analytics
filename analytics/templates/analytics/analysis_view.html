@@ -19,15 +19,16 @@
 
     {% include "analytics/_save_form.html" %}
     {% include "analytics/_option_form.html" %}
+    {% include "analytics/_login_form.html" %}
 
     <div id="toolbox">
         <div class="pull-right">
 
             {% if not analysis %}
-                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis" %}</a>
+                <a id="analysis-save" href="{% if user.is_authenticated %}#modal_analysis{% else %}#modal_analysis_login{% endif %}" class="btn btn-primary" data-toggle="modal" >{% trans "Save Analysis" %}</a>
             {% else %}
                 <a id="analysis-update" class="btn btn-primary" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis" %}</a>
-                <a href="#modal_analysis" class="btn btn-primary" data-toggle="modal" {% if not user.is_authenticated %}disabled="disabled"{% endif %}>{% trans "Save Analysis as" %}</a>
+                <a href="{% if user.is_authenticated %}#modal_analysis{% else %}#modal_analysis_login{% endif %}" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis as" %}</a>
             {% endif %}
 
             <a id="resize" class="btn btn-default fa fa-arrows-v"></a>
@@ -99,26 +100,27 @@
     }
   });
 
-  Save.init('#modal_analysis', '#title-save', '#abstract-save');
+  Save.init('#modal_analysis', '#title-save', '#abstract-save', '#modal_analysis_login');
   $("#permission_form").submit(function() { return false; });
-  {% if not analysis %}
-    $("#analysis_submit").click(function () {
-      Save.save(this, Display.getState());
-    });
-    {% if config %}
-      Display.setState(JSON.parse({{ config|safe|removetags:"script" }}));
-    {% endif %}
-  {% else %}
+  $("#analysis_submit").click(function () {
+    Save.save(this, Display.getState());
+  });
+  $("#login-submit").click(function () {
+    Save.authenticate('#analysis-save', '{% url 'account_ajax_login' %}', $("#login_form").serialize());
+  });
+
+  {% if config %}
+    Display.setState(JSON.parse({{ config|safe|removetags:"script" }}));
+  {% endif %}
+
+  {% if analysis %}
     Display.setState(JSON.parse({{ analysis.data|safe|removetags:"script" }}));
-    var analysisid = {{ analysis.id }};
-    $("#analysis_submit").click(function () {
-      Save.save(this, Display.getState());
-    });
     $("#analysis-update").click(function () {
-      PNotify.prototype.options.delay =  3000;
-      Save.update(analysisid, Display.getState());
+      PNotify.prototype.options.delay = 3000;
+      Save.update({{ analysis.id }}, Display.getState());
     });
   {% endif %}
+
   Display.init();
 </script>
 {% endblock %}

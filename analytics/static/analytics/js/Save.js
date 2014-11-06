@@ -1,13 +1,42 @@
 var Save = {
-  titleSelector: null,
-  abstractSelector: null,
 
   /**
    * Initialize the save class with the save form's elements selectors
    */
-  init : function (modalFormSelector, titleSelector, abstractSelector) {
+  init : function (saveForm, titleSelector, abstractSelector, authForm) {
+    this.saveForm = saveForm;
     this.titleSelector = titleSelector;
     this.abstractSelector = abstractSelector;
+    this.authForm = authForm;
+  },
+
+
+  /**
+   * Authenticate the user before showing up the save form
+   */
+  authenticate : function (button, url, credentials) {
+    var that = this;
+    $.ajax({
+      url: url,
+      type: 'POST',
+      data: credentials,
+      beforeSend: that._setCSRF,
+      statusCode: {
+        200: function(xhr) {
+          console.log(that.authForm);
+          $(that.authForm).modal('hide');
+          $(that.saveForm).modal('show');
+          $(button).attr('href', that.saveForm);
+        },
+        400: function(xhr) {
+          new PNotify({
+            title: 'Error',
+            text: 'Bad credentials',
+            type: 'error'
+          });
+        },
+      }
+    });
   },
 
   /**
@@ -18,7 +47,7 @@ var Save = {
     var title = $(this.titleSelector).val().trim();
     if(title) {
       $(button).off()
-      $(this.modalFormSelector).modal('hide');
+      $(this.saveSelector).modal('hide');
       postData = this._retrieveFormElements();
       postData.data = JSON.stringify(data);
       $.ajax({

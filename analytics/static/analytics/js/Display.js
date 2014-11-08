@@ -1292,6 +1292,7 @@ var Display = {
     var that = this;
 
     /// get data
+    var measures = Query.getMesures(this.schema, this.cube);
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
@@ -1375,8 +1376,10 @@ var Display = {
       .label(function (d) { return metadata.members[d.key].caption; })
 
       .title(function (d) {
-        if (metadata.members[d.key] === undefined) return (d.value ? format(d.value) : '');
-        return metadata.members[d.key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
+        var key = d.key ? d.key : d.data.key;
+        var valText = measures[that.measure].caption + ': ' + (d.value ? format(d.value) : 0);
+        var keyText = that.getDimensionCaption(dimension) + ": " + (metadata.members[key] === undefined ? '' : metadata.members[key].caption);
+        return keyText + "\n" + valText;
       });
   },
 
@@ -1393,6 +1396,7 @@ var Display = {
     var that = this;
 
     /// get data
+    var measures = Query.getMesures(this.schema, this.cube);
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
@@ -1481,8 +1485,9 @@ var Display = {
       .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
 
       .title(function (d) {
-        if (metadata.members[d.key] === undefined) return (d.value ? format(d.value) : '');
-        return metadata.members[d.key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
+        var valText = measures[that.measure].caption + ': ' + (d.value ? format(d.value) : 0);
+        var keyText = that.getDimensionCaption(dimension) + ": " + (metadata.members[d.key] === undefined ? '' : metadata.members[d.key].caption);
+        return keyText + "\n" + valText;
       });
   },
 
@@ -1499,6 +1504,7 @@ var Display = {
     var that = this;
 
     /// get data
+    var measures = Query.getMesures(this.schema, this.cube);
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
@@ -1556,8 +1562,9 @@ var Display = {
       .label(function (d) { if(metadata.members[d.key] !== undefined) return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
-        if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
-        return metadata.members[key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
+        var valText = measures[that.measure].caption + ': ' + (d.value ? format(d.value) : 0);
+        var keyText = that.getDimensionCaption(dimension) + ": " + (metadata.members[key] === undefined ? '' : metadata.members[key].caption);
+        return keyText + "\n" + valText;
       });
   },
 
@@ -1573,6 +1580,7 @@ var Display = {
     var that = this;
 
     // get data
+    var measures = Query.getMesures(this.schema, this.cube);
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
@@ -1644,8 +1652,9 @@ var Display = {
       .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
-        if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
-        return metadata.members[key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
+        var valText = measures[that.measure].caption + ': ' + (d.value ? format(d.value) : 0);
+        var keyText = that.getDimensionCaption(dimension) + ": " + (metadata.members[key] === undefined ? '' : metadata.members[key].caption);
+        return keyText + "\n" + valText;
       });
     this.charts[chart].element.xAxis().tickFormat(function(d) {return metadata.members[d].caption;});
     this.charts[chart].element.yAxis().tickFormat(function(d) { return format(d);});
@@ -1758,6 +1767,7 @@ var Display = {
     var that = this;
 
     /// get data
+    var measures = Query.getMesures(this.schema, this.cube);
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
     var metadata = this.getSliceFromStack(dimension);
@@ -1810,8 +1820,9 @@ var Display = {
       .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
-        if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');
-        return metadata.members[key].caption + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
+        var valText = measures[that.measure].caption + ': ' + (d.value ? format(d.value) : 0);
+        var keyText = that.getDimensionCaption(dimension) + ": " + (metadata.members[key] === undefined ? '' : metadata.members[key].caption);
+        return keyText + "\n" + valText;
       });
 
      this.charts[chart].element.xAxis().tickFormat(function(d) {return metadata.members[d].caption;});
@@ -1830,6 +1841,7 @@ var Display = {
 
     /// get data
     var dimension = this.charts[chart].dimensions[0];
+    var measures = Query.getMesures(this.schema, this.cube);
 
     if (this.charts[chart].element === undefined) {
       // Add the div for metadata informations
@@ -1846,6 +1858,9 @@ var Display = {
         .callbackZoomIn(function(el, dcChartID) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID); })
         .callbackZoomOut(function (dcChartID) { that.rollUp(that.charts[chart].dimensions[0], dcChartID); });
     }
+
+    $(this.charts[chart].selector + " table th:first").html(this.getDimensionCaption(dimension));
+    $(this.charts[chart].selector + " table th:last").html(measures[this.measure].caption);
 
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);

@@ -42,6 +42,7 @@ var Display = {
    *
    * @private
    */
+
   charts : {
     'map' : {
       'selector' : '#map',
@@ -49,6 +50,7 @@ var Display = {
       'element' : undefined,
       'dimensions' : [],
       'sort' : undefined,
+      'lbChoice' : true,
       'options' : {"geoProperty" : undefined}
     },
     'timeline' : {
@@ -57,6 +59,7 @@ var Display = {
       'element' : undefined,
       'dimensions' : [],
       'sort' : undefined,
+      'lbChoice' : true,
       'options' : {}
     },
     'rightChart' : {
@@ -65,6 +68,7 @@ var Display = {
       'element' : undefined,
       'dimensions' : [],
       'sort' : undefined,
+      'lbChoice' : true,
       'options' : {}
     },
     'barChart' : {
@@ -73,6 +77,7 @@ var Display = {
       'element' : undefined,
       'dimensions' : [],
       'sort' : undefined,
+      'lbChoice' : true,
       'options' : {}
     },
     'table' : {
@@ -81,6 +86,7 @@ var Display = {
       'element' : undefined,
       'dimensions' : [],
       'sort' : undefined,
+      'lbChoice' : true,
       'options' : {}
     }
   },
@@ -1038,6 +1044,7 @@ var Display = {
         // Add measures to the selects in the chartparams form
         var dimx = $('#chartparam-dimension-x').parent().parent().hide();
         var dimy = $('#chartparam-dimension-y').parent().parent().hide();
+        var labelChoice = $('#chartparam-labelChoice').parent().parent().hide();
         var sort = $('#chartparam-sort').parent().parent().hide();
         $('#chartparam-dimension-x').empty();
         $('#chartparam-dimension-y').empty();
@@ -1047,11 +1054,12 @@ var Display = {
           $('#chartparam-dimension-y').append('<option value="'+measure+'">'+measures[measure].caption+'</option>');
         }
 
-        // autoset infos
+        // autoset infos, update of the setting mini page for the corresponding graph
         $('#chartparam-type').val(that.charts[chart].type);
         $('#chartparam-dimension').val(that.charts[chart].dimensions[0]);
         $('#chartparam-dimension-x').val(that.charts[chart].dimensions[1]);
         $('#chartparam-dimension-y').val(that.charts[chart].dimensions[2]);
+        $('#chartparam-labelChoice').prop("checked",that.charts[chart].lbChoice);
         $('#chartparam-sort').val(that.charts[chart].sort);
 
         // update form dynamically depending on type
@@ -1062,6 +1070,11 @@ var Display = {
             $('#chartparam-dimension option[value!="'+Query.getGeoDimension(that.schema, that.cube)+'"]').attr('disabled', 'disabled');
           }
 
+          if(chartType == 'bubble' || chartType == 'pie')
+            labelChoice.slideDown(duration);
+          else
+            labelChoice.slideUp(duration);
+
           if (chartType == 'bubble') {
             dimx.slideDown(duration);
             dimy.slideDown(duration);
@@ -1070,16 +1083,17 @@ var Display = {
             dimx.slideUp(duration);
             dimy.slideUp(duration);
           }
-
+         			 
           if (chartType == 'pie' || chartType == 'bar' || chartType == 'table')
             sort.slideDown(duration);
-          else
+          else{
             sort.slideUp(duration);
+		  }
         }
         updateForm($('#chartparam-type').val(), 0);
         $('#chartparam-type').change(function() { updateForm($(this).val(), 400); });
 
-        // set callback for save
+        // set callback for save, update the graph according to the changes set on the setting mini page(On click on the update button)
         $('#chartparams-set').unbind('click').click(function() {
           $('#chartparams').modal('hide');
 
@@ -1088,6 +1102,7 @@ var Display = {
           options.dimensionx = $('#chartparam-dimension-x').val();
           options.dimensiony = $('#chartparam-dimension-y').val();
           options.sort      = $('#chartparam-sort').val();
+          options.lbChoice   = $('#chartparam-labelChoice').prop("checked");
           options.type      = $('#chartparam-type').val();
 
           that.updateChart(chart, options);
@@ -1194,10 +1209,16 @@ var Display = {
    */
   updateChart : function (chart, options) {
     console.log("update", chart, options);
-
+	
     var doRender = false;
     var doRedraw = false;
     var updateData = false;
+    
+    //Options of showing the labels on the graph (bubble or pie chart)
+    if((options.type == "bubble" || options.type == "pie") && options.lbChoice != this.charts[chart].lbChoice){
+		this.charts[chart].lbChoice = options.lbChoice;
+		doRedraw = true;
+	}
 
     // Bubble chart must have 3 dimensions
     if (options.type == "bubble" && (!options.dimensionx || !options.dimensiony)) {
@@ -1522,8 +1543,8 @@ var Display = {
   displayPie : function (chart) {
 
     var that = this;
-
-    /// get data
+	var labelChoice = this.charts[chart].lbChoice;
+	/// get data
     var measures = Query.getMesures(this.schema, this.cube);
     var dimension = this.charts[chart].dimensions[0];
     var crossfilterDimAndGroup = this.getCrossfilterDimensionAndGroup(dimension);
@@ -1580,7 +1601,7 @@ var Display = {
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)
       .colorDomain(this.niceDomain(crossfilterDimAndGroup.group))
-      .label(function (d) { if(metadata.members[d.key] !== undefined) return metadata.members[d.key].caption; })
+      .label(function (d) { if(metadata.members[d.key] !== undefined && labelChoice) return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         var valText = measures[that.measure].caption + ': ' + (d.value ? format(d.value) : 0);
@@ -1691,7 +1712,8 @@ var Display = {
    */
   displayBubble : function (chart) {
     var that = this;
-
+	var labelChoice = this.charts[chart].lbChoice;
+	
     // dimensions
     var measures = Query.getMesures(this.schema, this.cube);
     var extraMeasures = this.charts[chart].dimensions.slice(1);
@@ -1764,7 +1786,7 @@ var Display = {
 
       .minRadiusWithLabel(14)
 
-      .label(function (d) { if(metadata.members[d.key] !== undefined) return metadata.members[d.key].caption; })
+      .label(function (d) {if(metadata.members[d.key] !== undefined && labelChoice == true) return metadata.members[d.key].caption; })
       .title(function (d) {
         var key = d.key ? d.key : d.data.key;
         if (metadata.members[key] === undefined) return (d.value ? format(d.value) : '');

@@ -1008,7 +1008,11 @@ var Display = {
    * @param  {DOMObject} DOM Object in which we will put meta infos
    */
   displayChartMetaContainer : function (element) {
-    $(element).attr("class", "chart-meta").html('<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span><span class="chart-play"></span>');
+    $(element).attr("class", "chart-header").html(
+      '<div class="chart-meta">'+
+      '<span class="chart-infos"></span><span class="chart-levels-icons"></span><span class="chart-levels"></span><span class="btn-params"></span><span class="chart-play"></span>'+
+      '</div>'+
+      '<div class="chart-title"></div>');
   },
 
   /**
@@ -1093,6 +1097,20 @@ var Display = {
         $('#chartparams').modal('show');
       });
 
+  },
+
+  displayTitle : function (chart) {
+    var dimension   = this.charts[chart].dimensions[0];
+    var hierarchy   = this.getDimensionHierarchy(dimension);
+    var level       = this.getDimensionCurrentLevel(dimension);
+
+    var levelCapt   = Query.getLevels(this.schema, this.cube, dimension, hierarchy)[level];
+    var dimCapt     = this.getDimensionCaption(dimension);
+    var cubesAndMes = Query.getCubesAndMeasures(this.schema);
+    var cube        = cubesAndMes[this.cube].caption;
+    var mes         = cubesAndMes[this.cube].measures[this.measure].caption;
+
+    $(this.charts[chart].selector+' .chart-title').html(cube + " &bull; " + dimCapt + " &bull; " + levelCapt + " &bull; " + mes);
   },
 
   displayPlay : function (chart) {
@@ -1361,6 +1379,7 @@ var Display = {
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
 
+    this.displayTitle(chart);
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
@@ -1471,6 +1490,7 @@ var Display = {
       return d.id;
     });
 
+    this.displayTitle(chart);
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
@@ -1550,6 +1570,7 @@ var Display = {
       break;
     }
 
+    this.displayTitle(chart);
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
@@ -1639,6 +1660,7 @@ var Display = {
       break;
     }
 
+    this.displayTitle(chart);
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
@@ -1717,6 +1739,7 @@ var Display = {
       this.charts[chart].element.xAxis().tickFormat(function (s) { return format(s); });
     }
 
+    this.displayTitle(chart);
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
     this.charts[chart].element
@@ -1801,6 +1824,7 @@ var Display = {
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
     }
 
+    this.displayTitle(chart);
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 
@@ -1862,6 +1886,7 @@ var Display = {
     $(this.charts[chart].selector + " table th:first").html(this.getDimensionCaption(dimension));
     $(this.charts[chart].selector + " table th:last").html(measures[this.measure].caption);
 
+    this.displayTitle(chart);
     this.displayLevels(chart);
     this.displayCanDrillRoll(chart);
 

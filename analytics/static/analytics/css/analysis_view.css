@@ -95,10 +95,17 @@ div.dc-chart {
 	display: none;
 }
 
+.chart-header {
+	font-size: 85%;
+	padding: 3px 0;
+}
+
+.chart-title {
+	text-align: center;
+}
+
 .chart-meta {
-	position: absolute;
-	top: 5px;
-	right: 5px;
+	float: right;
 }
 
 .chart-meta > span {

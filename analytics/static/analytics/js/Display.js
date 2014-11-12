@@ -1668,15 +1668,15 @@ var Display = {
     // Generate sorted keys
     switch(this.charts[chart].sort) {
       case "valueasc":
-        var keys = crossfilterDimAndGroup.group.order(function(d) { return -d; }).top(Infinity).map(function(d) { return d.key; });
+        this.charts[chart].element.ordering(function (d) { return  d.data.value;   });
       break;
 
       case "valuedesc":
-        var keys = crossfilterDimAndGroup.group.order(function(d) { return d; }).top(Infinity).map(function(d) { return d.key; });
+        this.charts[chart].element.ordering(function (d) { return  -d.data.value;   });
       break;
 
       default: // key
-        var keys = d3.keys(metadata.members).sort();
+        this.charts[chart].element.ordering(function (d) { return  d.data.key;   });
         this.charts[chart].sort = "key";
       break;
     }
@@ -1687,8 +1687,9 @@ var Display = {
 
     var format = d3.format(".3s");
 
+    var keys = d3.keys(metadata.members);
     this.charts[chart].element
-      .x(d3.scale.ordinal().domain(keys))
+      .x(d3.scale.ordinal().domain(d3.keys(metadata.members)))
       .xUnits(dc.units.ordinal)
       .dimension(crossfilterDimAndGroup.dimension)
       .group(crossfilterDimAndGroup.group)

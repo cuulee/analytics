@@ -40,19 +40,13 @@
 
     <div id="columns">
       <div class="chart-columns" id="left-pane">
-          <a id="reset" class="btn btn-primary btn-sm fa fa-refresh" href="#">  Reset Filters</a>
-          <div id="clouds"></div>
+          <!--<a id="reset" class="btn btn-primary btn-sm fa fa-refresh" href="#">  Reset Filters</a>-->
       </div>
 
       <div class="chart-columns" id="middle-pane">
-          <div id="map"></div>
-          <div id="timeline"></div>
-          <div id="table"></div>
       </div>
 
       <div class="chart-columns" id="right-pane">
-          <div id="rightChart1"></div>
-          <div id="rightChart2"></div>
       </div>
     </div>
 
@@ -61,13 +55,11 @@
 {% block footer %}{% endblock %}
 
 {% block extra_script %}
-<script src="{{ STATIC_URL }}/analytics/js/d3.v3.min.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/crossfilter.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/crossfilter-server.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/dc.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}analytics/js/Query.js" type="application/javascript" charset="utf-8"></script>
+<script src="{{ STATIC_URL }}analytics/js/d3.v3.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/crossfilter.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/crossfilter-server.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/dc.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}analytics/js/wicket.js" type="application/javascript" charset="utf-8"></script>
-<script src="{{ STATIC_URL }}analytics/js/Display.js" type="application/javascript" charset="utf-8"></script>
 <script src="{{ STATIC_URL }}analytics/js/FactSelector.js" type="application/javascript" charset="utf-8"></script>
 <script src="{{ STATIC_URL }}/analytics/js/Save.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
@@ -76,14 +68,23 @@
 {% else %}
 <script src="{{ STATIC_URL }}/analytics/js/QueryAPI.js" type="application/javascript"></script>
 {% endif %}
+<script src="{{ STATIC_URL }}analytics/js/analytics.test.js" type="application/javascript" charset="utf-8"></script>
 <script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
 <script>
 
   {% if fixtures %}
-    Query.queryAPI = generateAPI([c]);
+    analytics.query.queryAPI(generateAPI([c]));
   {% else %}
-    Query.queryAPI = new QueryAPI();
+    analytics.query.queryAPI(new QueryAPI());
   {% endif %}
+  analytics.state.initMeasure();
+  analytics.state.initDimensions();
+  analytics.data.load();
+  analytics.display.render();
+  analytics.display.initResize();
+
+  /*
+  Query.queryAPI = new QueryAPI();
   var headerShown = true;
   var paddingTop = null;
 
@@ -109,6 +110,7 @@
       Display.resizeCharts(true);
     }
   });
+*/
 
   Save.init('#modal_analysis', '#title-save', '#abstract-save', '#modal_analysis_login');
   $("#permission_form").submit(function() { return false; });
@@ -130,7 +132,5 @@
       Save.update({{ analysis.id }}, Display.getState());
     });
   {% endif %}
-
-  Display.init();
 </script>
 {% endblock %}

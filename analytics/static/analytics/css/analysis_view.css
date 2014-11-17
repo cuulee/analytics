@@ -86,9 +86,13 @@ html, body {
 
 /***** CHARTS *****/
 
+.chart {
+	overflow: hidden;
+}
+
 div.dc-chart {
 	float: none;
-	position: relative;
+	/* position: relative; */
 }
 
 .empty-chart {

@@ -1348,35 +1348,75 @@ var Display = {
         '</div>');
 
       $("#" + chart + "-container .wordcloud-title").click(function() {
-        if (that.isAggregated(dimension)) {
-          var oldClientPossible = that.isClientSideAggrPossible();
-          that.deaggregateDimension(dimension);
-          var newClientPossible = that.isClientSideAggrPossible();
-          that.charts[chart] = chart_backup;
-          dc.registerChart(chart_backup.element);
-          that.charts[chart].element.showLegend('#'+chart+'-legend');
+        console.log(dimension,that.getChartsUsingDimension(dimension));
+        if(that.getChartsUsingDimension(dimension).length > 1){
+          $('#confirmation').modal('show');
+        
+        $('#confirmation_ok').unbind('click').click(function(){
+          if (that.isAggregated(dimension)) {
+            var oldClientPossible = that.isClientSideAggrPossible();
+            that.deaggregateDimension(dimension);
+            var newClientPossible = that.isClientSideAggrPossible();
+            that.charts[chart] = chart_backup;
+            dc.registerChart(chart_backup.element);
+            that.charts[chart].element.showLegend('#'+chart+'-legend');
           if (oldClientPossible !== newClientPossible) {
             that.getData();
             that.displayCharts(false);
             that.setFilters();
           }
-          that.charts[chart].element.render();
-        } else {
-          // Delete charts showing this dimension
-          var oldClientPossible = that.isClientSideAggrPossible();
-          that.aggregateDimension(dimension);
-          var newClientPossible = that.isClientSideAggrPossible();
+            that.charts[chart].element.render();
+          } else {
+            // Delete charts showing this dimension
+            var oldClientPossible = that.isClientSideAggrPossible();
+            that.aggregateDimension(dimension);
+            var newClientPossible = that.isClientSideAggrPossible();
 
-          dc.deregisterChart(that.charts[chart].element);
-          delete that.charts[chart];
-          $('#'+chart).empty();
-          $('#'+chart+'-legend').empty();
-          that.removeChartsWithDimension(dimension);
+            dc.deregisterChart(that.charts[chart].element);
+            delete that.charts[chart];
+            $('#'+chart).empty();
+            $('#'+chart+'-legend').empty();
+            that.removeChartsWithDimension(dimension);
 
+            if (oldClientPossible !== newClientPossible) {
+              that.getData();
+              that.displayCharts(false);
+              that.setFilters();
+            }
+          }
+          $('#confirmation').modal('hide');
+        });
+        } else{
+          if (that.isAggregated(dimension)) {
+            var oldClientPossible = that.isClientSideAggrPossible();
+            that.deaggregateDimension(dimension);
+            var newClientPossible = that.isClientSideAggrPossible();
+            that.charts[chart] = chart_backup;
+            dc.registerChart(chart_backup.element);
+            that.charts[chart].element.showLegend('#'+chart+'-legend');
           if (oldClientPossible !== newClientPossible) {
             that.getData();
             that.displayCharts(false);
             that.setFilters();
+          }
+            that.charts[chart].element.render();
+          } else {
+            // Delete charts showing this dimension
+            var oldClientPossible = that.isClientSideAggrPossible();
+            that.aggregateDimension(dimension);
+            var newClientPossible = that.isClientSideAggrPossible();
+
+            dc.deregisterChart(that.charts[chart].element);
+            delete that.charts[chart];
+            $('#'+chart).empty();
+            $('#'+chart+'-legend').empty();
+            that.removeChartsWithDimension(dimension);
+
+            if (oldClientPossible !== newClientPossible) {
+              that.getData();
+              that.displayCharts(false);
+              that.setFilters();
+            }
           }
         }
       });

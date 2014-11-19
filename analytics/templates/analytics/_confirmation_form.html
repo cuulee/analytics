@@ -1,0 +1,21 @@
+{% load i18n %}
+
+<div class="modal fade" id="confirmation" style="display:none;">
+  <div class="modal-dialog modal-content">
+    <div class="modal-header">
+      <a class="close" data-dismiss="modal">×</a>
+      <h3>{% trans "Hide dimension confirmation" %}</h3>
+    </div>
+    <div class="modal-body modal-body form-horizontal"> 
+      <div class="form-group">
+       At least one chart is using this dimension. If you hide the dimension, the charts will be reinitialized and data will be lost. Do you want to continue ?
+      </div>
+    </div>
+    <div class="modal-footer">
+      <a href="#" class="btn btn-default" data-dismiss="modal">{% trans "Cancel" %}</a>
+      <a href="#" class="btn btn-primary" id="confirmation_ok">{% trans "OK" %}</a>
+    </div>
+
+    </div>
+</div>
+

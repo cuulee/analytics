@@ -170,6 +170,9 @@ var Query = {
     return data;
   },
 
+   dice : function(hierarchies) {
+  },
+
   clear : function() {
   }
 

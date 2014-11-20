@@ -61,7 +61,7 @@ test("initMetadata", function () {
     "factMeasuresIntro" : "#qunit-fixture7",
     "colors" : "#qunit-fixture8",
     "cloudsSelector" : "#qunit-fixture9",
-    "zoomSelector" : "#qunit-fixture10",
+    "zoomId" : "#qunit-fixture10",
     "resetSelector" : "#qunit-fixture11"
   });
 
@@ -118,7 +118,7 @@ test("getData", function () {
 test("init, displayCharts, drillDown, rollUp", function () {
 
   // add sub fixture divs
-  jQuery("#qunit-fixture").empty().html("<div id=\"qunit-fixture1\"></div> <div id=\"qunit-fixture2\"></div> <div id=\"qunit-fixture3\"></div> <div id=\"qunit-fixture4\"></div> <div id=\"qunit-fixture5\"></div> <div id=\"qunit-fixture6\"></div> <div id=\"qunit-fixture7\"></div> <div id=\"qunit-fixture8\"></div> <div id=\"qunit-fixture9\"></div> <div id=\"qunit-fixture10\"></div>  <div id=\"qunit-fixture11\"></div>");
+  jQuery("#qunit-fixture").empty().html("<div id=\"qunit-fixture1\"></div> <div id=\"colums\"></div> <div id=\"qunit-fixture2\"></div> <div id=\"qunit-fixture3\"></div> <div id=\"qunit-fixture4\"></div> <div id=\"qunit-fixture5\"></div> <div id=\"qunit-fixture6\"></div> <div id=\"qunit-fixture7\"></div> <div id=\"qunit-fixture8\"></div> <div id=\"qunit-fixture9\"></div> <div id=\"qunit-fixture10\"></div>  <div id=\"qunit-fixture11\"></div>");
 
   Display.setOptions({
     "factSelector" : "#qunit-fixture1",

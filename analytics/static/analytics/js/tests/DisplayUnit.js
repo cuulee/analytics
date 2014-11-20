@@ -204,7 +204,7 @@ test("Set options", function() {
     },
     "colors" : "test8",
     "cloudsSelector" : "test9",
-    "zoomSelector" : "test10",
+    "zoomId" : "test10",
     "resetSelector" : "test11"
   });
 
@@ -217,7 +217,7 @@ test("Set options", function() {
   equal(Display.charts.table.selector, "test7", "set option table selector ok");
   equal(Display.options.colors, "test8", "set option colors ok");
   equal(Display.options.cloudsSelector, "test9", "set option cloudsSelector ok");
-  equal(Display.options.zoomSelector, "test10", "set option zoomSelector ok");
+  equal(Display.options.zoomId, "test10", "set option zoomId ok");
   equal(Display.options.resetSelector, "test11", "set option resetSelector ok");
 
 });

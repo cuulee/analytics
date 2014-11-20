@@ -3,9 +3,8 @@ module("FactSelectorTest");
 
   test("Initialization", function() {
     FactSelector.init("#qunit-fixture", 'Cubes available', 'Measures available');
-    equal(FactSelector.introCubes, 'Cubes available',"The text to introduce cubes available is the good one");
-    equal(FactSelector.introMeasures,'Measures available', "The text to introduce measures available is the good one");
-    FactSelector.clearAll();
+    equal(FactSelector.cubes.intro, 'Cubes available',"The text to introduce cubes available is the good one");
+    equal(FactSelector.measures.intro,'Measures available', "The text to introduce measures available is the good one");
   });
   
   test("Div containing cubes and measures are correctly filled", function() {
@@ -26,18 +25,23 @@ module("FactSelectorTest");
          {
            "measureID" : {"caption" : "measureCaption"}, 
            "measureID2" : {"caption" : "measureCaption2"},
-	   "measureID3" : {"caption" : "measureCaption3"},
+           "measureID3" : {"caption" : "measureCaption3"},
          }
      }
     };
+/*
+    FactSelector.setCallback(function(cubeCallback, measureCallback) { return that.setCubeAndMeasureCallback(cubeCallback, measureCallback); });
+    FactSelector.setSelectedCube(cube);
+    FactSelector.setSelectedMeasure(measure);
+    */
+
     FactSelector.setMetadata(data);
-    FactSelector.showCubes();
-    FactSelector.showMeasures("12");
-    equal($("#qunit-fixture div:first a").length,'2',"The div contains all the cubes in the data");
-    equal($("#qunit-fixture div:last a").length,'2',"The div of cube 12 contains the 2 measures");
-    FactSelector.showMeasures("13")
-    equal($("#qunit-fixture div:last a").length,'3',"The div of cube 13 contains the 3 measures");
-    FactSelector.clearAll();
+    //FactSelector.showCubes();
+    FactSelector.setSelectedCube("12");
+    equal($("#qunit-fixture div:first li").length,'2',"The div contains all the cubes in the data");
+    equal($("#qunit-fixture div:last li").length,'2',"The div of cube 12 contains the 2 measures");
+    FactSelector.setSelectedCube("13")
+    equal($("#qunit-fixture div:last li").length,'3',"The div of cube 13 contains the 3 measures");
   });
   
   test("The Callback should set the good values", function() {

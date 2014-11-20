@@ -315,10 +315,6 @@ div.dc-chart {
     cursor: pointer;
 }
 
-.dc-color-legend {
-    width: 100%;
-}
-
 .dc-chart .dc-word {
     padding: 3px 5px;
     float: left;
@@ -335,4 +331,8 @@ div.dc-chart {
 
 .dc-chart .dc-word.deselected {
     color: #CCC !important;
+}
+
+.dc-color-legend {
+    width: 100%;
 }

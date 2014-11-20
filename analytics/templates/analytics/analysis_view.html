@@ -25,6 +25,8 @@
     <div id="toolbox">
         <div class="pull-right">
 
+          <a id="reset" class="btn btn-default" href="#"><i class="fa fa-refresh"></i>{% trans "Reset Filters" %}</a>
+          <a id="resize" class="btn btn-default"><i class="fa fa-arrows-v fa-nomargin"></i></a>
             {% if not analysis %}
                 <a id="analysis-save" href="{% if user.is_authenticated %}#modal_analysis{% else %}#modal_analysis_login{% endif %}" class="btn btn-primary" data-toggle="modal" >{% trans "Save Analysis" %}</a>
             {% else %}
@@ -32,7 +34,6 @@
                 <a href="{% if user.is_authenticated %}#modal_analysis{% else %}#modal_analysis_login{% endif %}" class="btn btn-primary" data-toggle="modal">{% trans "Save Analysis as" %}</a>
             {% endif %}
 
-            <a id="resize" class="btn btn-default fa fa-arrows-v"></a>
         </div>
 
         <div id="fact-selector">&nbsp;</div>
@@ -65,6 +66,7 @@
 <script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
 {% if fixtures %}
 <script src="{{ STATIC_URL }}/analytics/js/helpers/cube.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/helpers/fixtures.js" type="application/javascript"></script>
 {% else %}
 <script src="{{ STATIC_URL }}/analytics/js/QueryAPI.js" type="application/javascript"></script>
 {% endif %}
@@ -72,16 +74,6 @@
 <script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
 <script>
 
-  {% if fixtures %}
-    analytics.query.queryAPI(generateAPI([c]));
-  {% else %}
-    analytics.query.queryAPI(new QueryAPI());
-  {% endif %}
-  analytics.state.initMeasure();
-  analytics.state.initDimensions();
-  analytics.data.load();
-  analytics.display.render();
-  analytics.display.initResize();
 
   /*
   Query.queryAPI = new QueryAPI();
@@ -112,25 +104,37 @@
   });
 */
 
+
   Save.init('#modal_analysis', '#title-save', '#abstract-save', '#modal_analysis_login');
   $("#permission_form").submit(function() { return false; });
   $("#analysis_submit").click(function () {
-    Save.save(this, Display.getState());
+    Save.save(this, analytics.state());
   });
   $("#login-submit").click(function () {
     Save.authenticate('#analysis-save', '{% url 'account_ajax_login' %}', $("#login_form").serialize());
   });
 
+  var state;
+
   {% if config %}
-    Display.setState(JSON.parse({{ config|safe|removetags:"script" }}));
+    state = JSON.parse({{ config|safe|removetags:"script" }});
   {% endif %}
 
   {% if analysis %}
-    Display.setState(JSON.parse({{ analysis.data|safe|removetags:"script" }}));
+    state = JSON.parse({{ analysis.data|safe|removetags:"script" }});
+    console.log(JSON.parse({{ analysis.data|safe|removetags:"script" }}));
     $("#analysis-update").click(function () {
       PNotify.prototype.options.delay = 3000;
-      Save.update({{ analysis.id }}, Display.getState());
+      Save.update({{ analysis.id }}, analytics.state());
     });
   {% endif %}
+
+  {% if fixtures %}
+    analytics.init(generateAPI([c]), state);
+  {% else %}
+    analytics.init(new QueryAPI(), state);
+  {% endif %}
+
+
 </script>
 {% endblock %}

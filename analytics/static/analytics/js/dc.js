@@ -3780,26 +3780,21 @@ dc.wheelMixin = function(_chart) {
     ```
     */
     _chart.onMouseWheel = function (d, zoomIn, zoomOut) {
-		
-		var key=null;
         if (zoomIn === undefined)
             zoomIn = true;
         if (zoomOut === undefined)
             zoomOut = true;
-        //checks if the crtl key was pressed when the mousse wheel occured
-        // Plus it prevents the default zoom on a page with the crtl+mousewheel    
-        if(d3.event.ctrlKey){
-			d3.event.preventDefault();
-			key=true;
-		}
-		else{
-			key=false;
-			
-		}
-		
+
+        d3.event.preventDefault();
+
+        var keys = {
+            ctrl  : d3.event.ctrlKey,
+            alt   : d3.event.altKey,
+            shift : d3.event.shiftKey
+        }
         if (!disabledActions.mousewheel && zoomIn && (d3.event.deltaY < 0 || d3.event.wheelDeltaY > 0) && _chart._callbackZoomIn !== undefined) {
             delayAction('mousewheel', 1500);
-            _chart._zoomIn(d,key);
+            _chart._zoomIn(d, keys);
         }
 
         // on zoomIn-out
@@ -3813,9 +3808,9 @@ dc.wheelMixin = function(_chart) {
         return false;
     };
 
-    _chart._zoomIn = function (d,key) {
-        _chart._onZoomIn(d);
-        _chart.callbackZoomIn()(_chart.keyAccessor()(d), _chart.chartID(),key);
+    _chart._zoomIn = function (d, keys) {
+        _chart._onZoomIn(d, keys);
+        _chart.callbackZoomIn()(_chart.keyAccessor()(d), _chart.chartID(), keys);
     };
 
     _chart._zoomOut = function (d) {
@@ -4342,9 +4337,15 @@ dc.pieChart = function (parent, chartGroup) {
     }
 
     // Redefinition of zoomIn function, from dc.wheelMixin()
-    _chart._zoomIn = function (d) {
-      _chart._onZoomIn(d);
-      _chart.callbackZoomIn()(d.data.key, _chart.chartID());
+    _chart._zoomIn = function (d, keys) {
+        var elements = [];
+        if(keys.ctrl){
+            elements = _chart.filters();
+        } else {
+            elements.push(d.data.key);
+        }
+      _chart._onZoomIn(elements);
+      _chart.callbackZoomIn()(d.data.key, _chart.chartID(), keys);
     };
 
     return _chart.anchor(parent, chartGroup);
@@ -4672,9 +4673,15 @@ dc.barChart = function (parent, chartGroup) {
         _chart.onMouseWheel(d, true, true);
     }
 
-    _chart._zoomIn = function (d) {
-      _chart._onZoomIn(d);
-      _chart.callbackZoomIn()(d.x);
+    _chart._zoomIn = function (d, keys) {
+      var elements = [];
+      if(keys.ctrl){
+          elements = _chart.filters();
+      } else {
+          elements.push(d.x);
+      }
+      _chart._onZoomIn(elements);
+      _chart.callbackZoomIn()(d.x, _chart.chartID(), keys);
     };
 
     return _chart.anchor(parent, chartGroup);
@@ -5551,9 +5558,15 @@ dc.dataTable = function (parent, chartGroup) {
     };
 
   // Redefinition of zoomIn function, from dc.wheelMixin()
-    _chart._zoomIn = function (d) {
-      _chart._onZoomIn(d);
-      _chart.callbackZoomIn()(d.key, _chart.chartID());
+    _chart._zoomIn = function (d, keys) {
+        var elements = [];
+        if(keys.ctrl){
+            elements = _chart.filters();
+        } else {
+            elements.push(d.key);
+        }
+      _chart._onZoomIn(elements);
+      _chart.callbackZoomIn()(d.key, _chart.chartID(), keys);
     };
 
     return _chart.anchor(parent, chartGroup);
@@ -5913,9 +5926,15 @@ dc.bubbleChart = function (parent, chartGroup) {
     };
 
     // Redefinition of zoomIn function, from dc.wheelMixin()
-    _chart._zoomIn = function (d) {
-        _chart._onZoomIn(d);
-        _chart.callbackZoomIn()(d.key, _chart.chartID());
+    _chart._zoomIn = function (d, keys) {
+        var elements = [];
+        if(keys.ctrl){
+            elements = _chart.filters();
+        } else {
+            elements.push(d.key);
+        }
+        _chart._onZoomIn(elements);
+        _chart.callbackZoomIn()(d.key, _chart.chartID(), keys);
     };
 
     return _chart.anchor(parent, chartGroup);
@@ -6716,8 +6735,10 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
                 if (layerIndex == _geoJsons.length - 1) {
                     return _chart.onClick(d, layerIndex);
                 } else {
-                    _chart._zoomOut(Math.max(0, _geoJsons.length - 1 - layerIndex));
-                    _chart._zoomIn(d);
+                    if (!d3.event.defaultPrevented) {
+                          _chart._zoomOut(Math.max(0, _geoJsons.length - 1 - layerIndex));
+                          _chart._zoomIn(d, {});
+                    }
                 }
             })
         if (layerIndex == _geoJsons.length - 1 && layerIndex < _nbZoomLevels) {
@@ -6897,9 +6918,15 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
         _chart.addTranslate([d3.event.dx, d3.event.dy], 0);
     }
 
-    _chart._zoomIn = function (d,key) {
-		_chart._onZoomIn(d.id);
-        _chart.callbackZoomIn()(d.id,_chart.chartID(),key);
+    _chart._zoomIn = function (d, keys) {
+        var elements = [];
+        if(keys.ctrl){
+            elements = _chart.filters();
+        } else {
+            elements.push(d.id);
+        }
+        _chart._onZoomIn(elements);
+        _chart.callbackZoomIn()(d.id, _chart.chartID(), keys);
     };
 
     _chart._zoomOut = function (nbLevels) {
@@ -6910,22 +6937,28 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
     /*
      * Function called when drilling down on d or on all selected members : focus on d and call drill down of Display
      */
-    _chart._onZoomIn = function (d) {
+    _chart._onZoomIn = function (elements) {
+        var geom = [];
         var layerData = this.geoJsons()[this.geoJsons().length - 1].data
         for (var i in layerData) {
-            if (layerData[i].id === d) {
-                var geom = layerData[i];
-                break;
+            for(var j in elements){
+                if (layerData[i].id === elements[j]) {
+                    geom.push(layerData[i]);
+                }
             }
         }
-        _chart._adaptTo(geom, 750);
+        _chart._adaptTo({"type": "GeometryCollection", "geometries": geom}, 750);
     };
 
     /*
      * Called when rolling up from the current level
      */
     _chart._onZoomOut = function () {
-        _chart._adaptTo({ "type": "GeometryCollection", "geometries": geoJson(Math.max(0, _geoJsons.length - 2)).data}, 700);
+        _chart._adaptTo({
+          "type": "GeometryCollection",
+          "geometries": geoJson(Math.max(0, _geoJsons.length - 2)).data
+          }, 700
+        );
     };
 
 

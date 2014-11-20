@@ -13,6 +13,7 @@ from django.shortcuts import render, redirect
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect
+from django.conf import settings
 
 from geonode.utils import resolve_object
 from geonode.base.forms import CategoryForm
@@ -51,7 +52,7 @@ def new_analysis(request, template='analytics/analysis_view.html'):
         config = analysis_obj.data
         return render(request, template, {'config': config})
 
-    return render(request, template, {'chart_tips' : ChartTip.objects.all()})
+    return render(request, template, {'chart_tips' : ChartTip.objects.all(), 'fixtures': settings.FIXTURES})
 
 def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
     """ The view that show the analytics main viewer. """
@@ -60,7 +61,8 @@ def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
 
         return render(request, template, {
             'analysis' : analysis_obj,
-            'chart_tips' : ChartTip.objects.all()
+            'chart_tips' : ChartTip.objects.all(),
+            'fixtures': settings.FIXTURES
         })
     except PermissionDenied:
         if not request.user.is_authenticated():

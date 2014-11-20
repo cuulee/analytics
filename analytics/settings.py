@@ -70,3 +70,5 @@ NOSE_ARGS = [
     '--cover-package=analytics',
     '--verbosity=2',
 ]
+
+FIXTURES = True

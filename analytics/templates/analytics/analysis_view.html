@@ -70,10 +70,19 @@
 <script src="{{ STATIC_URL }}analytics/js/FactSelector.js" type="application/javascript" charset="utf-8"></script>
 <script src="{{ STATIC_URL }}/analytics/js/Save.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
+{% if fixtures %}
+<script src="{{ STATIC_URL }}/analytics/js/helpers/cube.js" type="application/javascript"></script>
+{% else %}
 <script src="{{ STATIC_URL }}/analytics/js/QueryAPI.js" type="application/javascript"></script>
+{% endif %}
 <script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
 <script>
-  Query.queryAPI = new QueryAPI();
+
+  {% if fixtures %}
+    Query.queryAPI = generateAPI([c]);
+  {% else %}
+    Query.queryAPI = new QueryAPI();
+  {% endif %}
   var headerShown = true;
   var paddingTop = null;
 

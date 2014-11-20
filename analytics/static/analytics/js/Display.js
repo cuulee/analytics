@@ -1394,7 +1394,7 @@ var Display = {
 
         .showLegend('#'+chart+'-legend')
 
-        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomIn(function(el, chartID, key) { that.drillDown(that.charts[chart].dimensions[0], el, chartID, key); })
         .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
@@ -1434,7 +1434,7 @@ var Display = {
   displayMap : function (chart) {
 
     var that = this;
-
+	
     /// get data
     var measures = Query.getMesures(this.schema, this.cube);
     var dimension = this.charts[chart].dimensions[0];
@@ -1464,19 +1464,18 @@ var Display = {
       this.charts[chart].element = dc.geoChoroplethChart(this.charts[chart].selector)
         .width(width)
         .height(height)
-
+        
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d ? that.charts[chart].element.colors()(d) : '#ccc'; })
 
         .projection(d3.geo.mercator())
 
-        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomIn(function(el, chartID, key) {that.drillDown(that.charts[chart].dimensions[0], el, chartID, key);})
         .callbackZoomOut(function (nbLevels, chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID, nbLevels); })
+	    .setNbZoomLevels(this.charts[chart].options.nbLevels)
 
-        .setNbZoomLevels(this.charts[chart].options.nbLevels)
-
-        .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); });
-
+        .on("filtered", function (ch, filter) {that.setFilter(chart, that.charts[chart].dimensions[0], filter); }); 
+		
         var div = d3.select(this.charts[chart].selector).append("div")
           .attr("id", this.options.zoomId);
 
@@ -1567,7 +1566,7 @@ var Display = {
         .height(height)
         .minAngleForLabel(0.3)
 
-        .callbackZoomIn(function(el, dcChartID) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID); })
+        .callbackZoomIn(function(el, dcChartID, key) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID, key); })
         .callbackZoomOut(function (dcChartID) { that.rollUp(that.charts[chart].dimensions[0], dcChartID); })
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, that.charts[chart].dimensions[0], filter); })
@@ -1646,7 +1645,7 @@ var Display = {
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
 
-        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomIn(function(el, chartID, key) { that.drillDown(that.charts[chart].dimensions[0], el, chartID, key); })
         .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .margins({top: 10, right: 10, bottom: 125, left: 40})
@@ -1753,7 +1752,7 @@ var Display = {
 
         .maxBubbleRelativeSize(0.075)
 
-        .callbackZoomIn(function(el, chartID) { that.drillDown(dimensions[0], el, chartID); })
+        .callbackZoomIn(function(el, chartID, key) { that.drillDown(dimensions[0], el, chartID, key); })
         .callbackZoomOut(function (chartID) { that.rollUp(dimensions[0], chartID); })
 
         .on("filtered", function (ch, filter) { that.setFilter(chart, dimensions[0], filter); });
@@ -1834,7 +1833,7 @@ var Display = {
         .height(height)
         .colors(d3.scale.quantize().range(this.options.colors))
         .colorCalculator(function (d) { return d.value ? that.charts[chart].element.colors()(d.value) : '#ccc'; })
-        .callbackZoomIn(function(el, chartID) { that.drillDown(that.charts[chart].dimensions[0], el, chartID); })
+        .callbackZoomIn(function(el, chartID, key) { that.drillDown(that.charts[chart].dimensions[0], el, chartID, key); })
         .callbackZoomOut(function (chartID) { that.rollUp(that.charts[chart].dimensions[0], chartID); })
 
         .margins({top: 10, right: 10, bottom: 20, left: 40})
@@ -1902,7 +1901,7 @@ var Display = {
       d3.select(this.charts[chart].selector).append('table');
       d3.select(this.charts[chart].selector + ' table').html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
       this.charts[chart].element = dc.dataTable(this.charts[chart].selector + ' table')
-        .callbackZoomIn(function(el, dcChartID) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID); })
+        .callbackZoomIn(function(el, dcChartID, key) { that.drillDown(that.charts[chart].dimensions[0], el, dcChartID, key); })
         .callbackZoomOut(function (dcChartID) { that.rollUp(that.charts[chart].dimensions[0], dcChartID); });
     }
 
@@ -2105,32 +2104,48 @@ var Display = {
 
   /**
    * Drill down on the given dimension on a member. Should called inside callback functions.
-   * Will update the charts consequently.
+   * Will update the charts consequently. It can also drills down on all the selected members if the ctrl key was pressed.
    *
    * @private
    * @param {string} dimension id of the dimension on which we want to drill down
    * @param {string} member id of the member on which we want to drill down
    * @param {string} dcChartID id of the dc chart on which the evenement was called
+   * @param {string} boolean that indicates if the crtl key was pressed during the drillDown which means a drillDown on all the selected members is called.
    */
-  drillDown : function (dimension, member, dcChartID) {
+  drillDown : function (dimension, member, dcChartID, key) { 
     try {
-      var hierarchy = this.getDimensionHierarchy(dimension);
+	  var newMembers = {};
+	  var newMembersTemp = {};
+	  var listElements = this.dimensions[dimension].membersSelected;
+	
+	  var hierarchy = this.getDimensionHierarchy(dimension);
       var oldLevel = this.getDimensionCurrentLevel(dimension);
 
       nbLevels = Object.keys(Query.getLevels(this.schema, this.cube, dimension, hierarchy)).length;
 
       if (oldLevel < nbLevels - 1) {
         var newLevel = oldLevel + 1;
-
-        var newMembers = Query.getMembers(this.schema, this.cube, dimension, hierarchy, oldLevel, true, member);
-
-        // add slice to stack
-        this.addSliceToStack(dimension, '', hierarchy, newLevel, newMembers, true);
-
+		//if the crtl key is pressed a drillDown on all the selected members is run
+        if (key && listElements.length > 0){
+          for(var elt in listElements)
+            {
+              newMembersTemp = (Query.getMembers(this.schema, this.cube, dimension, hierarchy, oldLevel, true, listElements[elt]));
+			    for (var memberTemp in newMembersTemp){
+                  newMembers[memberTemp] = newMembersTemp[memberTemp];
+			    }
+		    }
+        }
+		else{
+		  newMembers = Query.getMembers(this.schema, this.cube, dimension, hierarchy, oldLevel, true, member);
+		}
+		
+		// add slice to stack
+		this.addSliceToStack(dimension, '', hierarchy, newLevel, newMembers, true);
+        
         var that = this;
         this.getChartsUsingDimension(dimension).forEach(function (chart) {
           if (that.charts[chart].element._onZoomIn !== undefined
-              && that.charts[chart].element.chartID() !== dcChartID) {
+              && that.charts[chart].element.chartID() !== dcChartID && !key) {
             that.charts[chart].element._onZoomIn(member);
           }
         });

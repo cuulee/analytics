@@ -25,6 +25,8 @@ from geonode.documents.models import get_related_documents
 from analytics.models import Analysis, ChartTip
 from analytics.forms import AnalysisForm
 
+from django.views.decorators.gzip import gzip_page
+
 import json
 
 _PERMISSION_MSG_DELETE = _("You are not permitted to delete this analysis.")
@@ -42,6 +44,7 @@ def _resolve_analysis(request, identifier, permission='base.change_resourcebase'
     return resolve_object(request, Analysis, {'pk':identifier}, permission=permission,
                           permission_msg=msg, **kwargs)
 
+@gzip_page
 def new_analysis(request, template='analytics/analysis_view.html'):
     """ Show a new analysis. A copy parameter can be given, this parameter is
     the id of an analysis from which we should copy the state to display on the

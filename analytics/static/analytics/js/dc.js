@@ -3292,7 +3292,10 @@ dc.stackMixin = function (_chart) {
     };
 
     function flattenStack() {
-        return _chart.data().reduce(function (all, layer) {
+        var groups = _chart.data();
+        groups[0].values = _chart._computeOrderedGroups(groups[0].values);
+
+        return groups.reduce(function (all, layer) {
             return all.concat(layer.values);
         }, []);
     }

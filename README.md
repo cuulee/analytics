@@ -2,18 +2,14 @@ Analytics
 =========
 
 
-Installation
-------------
+Testing Installation
+--------------------
 
-To use this application, you need some geo-business intelligence data in a postgreSQL database, and a
-GeoMondrian installed. To install GeoMondrian, yu can follow [this](https://github.com/loganalysis/analytics/wiki/GeoMondrian) guide.
+If you just want to test the application, we provide fixtures data that you can use. They are enabled by default so you just need to: 
 
-Then, you need to install Geonode in the development version 2.4 following the instructions [here](https://github.com/GeoNode/geonode).
+Install Geonode in the development version 2.4 following the instructions [here](https://github.com/GeoNode/geonode).
 Don't install the package, it is not the 2.4 version.
 
-Once Geonode is installed, you need to install the [solap4py-java](https://github.com/loganalysis/solap4py-java) component and
-start it. Then you need to be in the same environment as the one in which you have installed Geonode, so if you have installed
-it in a virtualenv, place yourself in this virtualenv.
 
 Then to install the analytics app:
 
@@ -37,3 +33,13 @@ To start the analytics app:
     python manage.py runserver 0.0.0.0:8000
 
 
+Full installation
+-----------------
+
+If you want to run the full application, you will also need:
+
+Some geo-business intelligence data in a postgreSQL database, and a
+GeoMondrian installed. To install GeoMondrian, yu can follow [this](https://github.com/loganalysis/analytics/wiki/GeoMondrian) guide.
+
+To install the [solap4py-java](https://github.com/loganalysis/solap4py-java) component and
+start it.

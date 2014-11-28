@@ -43,3 +43,8 @@ GeoMondrian installed. To install GeoMondrian, yu can follow [this](https://gith
 
 To install the [solap4py-java](https://github.com/loganalysis/solap4py-java) component and
 start it.
+
+You can configure the data you will use in the settings.py with the flag *FIXTURES*:
+
+- Set it to true to use sample data
+- Set it to false to use your GeoMondrian

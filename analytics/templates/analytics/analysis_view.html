@@ -21,11 +21,12 @@
     {% include "analytics/_confirmation_form.html" %}
     {% include "analytics/_option_form.html" %}
     {% include "analytics/_login_form.html" %}
+    {% include "analytics/_color_form.html" %}
 
     <div id="toolbox">
         <div class="pull-right">
-
-          <a id="reset" class="btn btn-default" href="#"><i class="fa fa-refresh"></i>{% trans "Reset Filters" %}</a>
+          <a id="addchart" class="btn btn-default btn-md" href="#"><i class="fa fa-plus"></i> {% trans "Add a chart" %}</a>
+          <a id="reset" class="btn btn-default" href="#"><i class="fa fa-refresh"></i> {% trans "Reset Filters" %}</a>
           <a id="resize" class="btn btn-default"><i class="fa fa-arrows-v fa-nomargin"></i></a>
             {% if not analysis %}
                 <a id="analysis-save" href="{% if user.is_authenticated %}#modal_analysis{% else %}#modal_analysis_login{% endif %}" class="btn btn-primary" data-toggle="modal" >{% trans "Save Analysis" %}</a>
@@ -44,10 +45,10 @@
           <!--<a id="reset" class="btn btn-primary btn-sm fa fa-refresh" href="#">  Reset Filters</a>-->
       </div>
 
-      <div class="chart-columns" id="middle-pane">
+      <div class="chart-columns chart-columns-sortable" id="middle-pane">
       </div>
 
-      <div class="chart-columns" id="right-pane">
+      <div class="chart-columns chart-columns-sortable" id="right-pane">
       </div>
     </div>
 
@@ -61,9 +62,12 @@
 <script src="{{ STATIC_URL }}analytics/js/crossfilter-server.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}analytics/js/dc.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}analytics/js/wicket.js" type="application/javascript" charset="utf-8"></script>
-<script src="{{ STATIC_URL }}analytics/js/FactSelector.js" type="application/javascript" charset="utf-8"></script>
 <script src="{{ STATIC_URL }}/analytics/js/Save.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/colorbrewer.v1.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/bootbox.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}/analytics/js/simple_statistics.js" type="application/javascript"></script>
 {% if fixtures %}
 <script src="{{ STATIC_URL }}/analytics/js/helpers/cube.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}/analytics/js/helpers/fixtures.js" type="application/javascript"></script>
@@ -71,39 +75,7 @@
 <script src="{{ STATIC_URL }}/analytics/js/QueryAPI.js" type="application/javascript"></script>
 {% endif %}
 <script src="{{ STATIC_URL }}analytics/js/analytics.test.js" type="application/javascript" charset="utf-8"></script>
-<script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
 <script>
-
-
-  /*
-  Query.queryAPI = new QueryAPI();
-  var headerShown = true;
-  var paddingTop = null;
-
-  Display.tips = {
-    {% for tip in chart_tips %}
-      '{{ tip.chart_type }}' : '{{ tip.message|linebreaksbr }}',
-    {% endfor %}
-  }
-
-  $("#resize").click(function() {
-    if (headerShown) {
-      $(".navbar").hide();
-      $(".chart-columns").css("top", "50px");
-      paddingTop = $("body").css("padding-top");
-      $("body").css("padding-top", "0");
-      headerShown = false;
-      Display.resizeCharts(true);
-    } else {
-      $(".navbar").show();
-      $(".chart-columns").css("top", "100px");
-      paddingTop = $("body").css("padding-top", paddingTop);
-      headerShown = true;
-      Display.resizeCharts(true);
-    }
-  });
-*/
-
 
   Save.init('#modal_analysis', '#title-save', '#abstract-save', '#modal_analysis_login');
   $("#permission_form").submit(function() { return false; });
@@ -122,13 +94,13 @@
 
   {% if analysis %}
     state = JSON.parse({{ analysis.data|safe|removetags:"script" }});
-    console.log(JSON.parse({{ analysis.data|safe|removetags:"script" }}));
     $("#analysis-update").click(function () {
       PNotify.prototype.options.delay = 3000;
       Save.update({{ analysis.id }}, analytics.state());
     });
   {% endif %}
 
+  analytics.setCsts({{ csts|safe }});
   {% if fixtures %}
     analytics.init(generateAPI([c]), state);
   {% else %}

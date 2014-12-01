@@ -1,0 +1,48 @@
+{% load i18n %}
+
+<div class="modal fade" id="dimparams" style="display:none;">
+  <div class="modal-dialog modal-content">
+    <div class="modal-header">
+      <a class="close" data-dismiss="modal">×</a>
+      <h3>{% trans "Dimension parameters" %}</h3>
+    </div>
+    <div class="modal-body modal-body form-horizontal">
+
+      <div class="form-group">
+        <label for="chartparam-sort" class="col-sm-3 control-label">{% trans "Color scale" %}:</label>
+        <div class="col-sm-9">
+          <button class="btn dropdown-toggle" id="dimparam-color-button" data-toggle="dropdown"></button>
+            <ul class="dropdown-menu" id="dimparam-color-dropdown">
+            </ul>
+            <input type="hidden" id="dimparam-color" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="dimparam-colors-nb" class="col-sm-3 control-label">{% trans "Number of bins" %}:</label>
+        <div class="col-sm-9">
+          <input type="number" min="3" max="9" id="dimparam-colors-nb" value="3" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="dimparam-scale" class="col-sm-3 control-label">{% trans "Scale type" %}:</label>
+        <div class="col-sm-9">
+          <select id="dimparam-scale">
+            <option value="quantize">{% trans "Linear" %}</option>
+            <!--<option value="linear">Linear gradient</option>-->
+            <option value="quantile">{% trans "Quantile" %}</option>
+            <option value="natural">{% trans "Jenks Natural Breaks" %}</option>
+            <!--<option value="log">Log</option>-->
+          </select>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <a href="#" class="btn btn-default" data-dismiss="modal">{% trans "Cancel" %}</a>
+      <a href="#" class="btn btn-primary" id="dimparams-set">{% trans "Update" %}</a>
+    </div>
+
+  </div>
+</div>

@@ -28,10 +28,6 @@
 	margin: 0;
 }
 
-#wrap {
-	padding: 0px;
-}
-
 #toolbox #resize {
 	margin-right: 5px;
 }
@@ -95,12 +91,67 @@ html, body {
 	background: #DAECF2;
 }
 
-div.dc-chart {
-	float: none;
-	/* position: relative; */
+.chart-columns-sortable .chart-header {
+	cursor: move;
 }
 
-.empty-chart {
+div.dc-chart {
+	float: none;
+	position: relative;
+}
+
+.chart-title {
+	white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chart-text {
+	display: none;
+}
+
+.chart-hidden .chart-text {
+	display: block;
+	text-align: center;
+	padding: 30px;
+	font-style: italic;
+	font-size: 110%;
+}
+
+.chart-hidden.chart-wordcloudWithLegend .chart-text, .chart-hidden .chart-container, .chart-hidden .wordcloud-legend, .chart-hidden .btn-dimparams {
+	display: none;
+}
+
+.chart-hidden.chart-wordcloudWithLegend .chart-header {
+	margin-bottom: 5px;
+}
+
+.chart-pie .chart-container, .chart-table .chart-container {
+	padding: 8px;
+}
+
+.btn-dimparams-container {
+	display: table-cell;
+	padding: 0 5px;
+	vertical-align: top;
+}
+
+.color-palette {
+	cursor: pointer;
+}
+
+.color-palette span {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+}
+
+.wordcloud-legend {
+	display: table-cell;
+	width: 100%;
+}
+
+.chart-hidden #zoom {
 	display: none;
 }
 

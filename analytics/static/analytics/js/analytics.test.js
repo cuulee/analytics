@@ -49,18 +49,22 @@ analytics.csts = {
 var analytics = {
   version: '0.1.0',
   csts : {
+    crossfilterClientVsServerThreshold : 20000,
     resizeDelay : 350,
     css : {
       header           : '.navbar',
       columnsContainer : '#columns',
       columns          : '.chart-columns',
+      columnsSortable  : '.chart-columns-sortable',
       charts           : '.chart',
       chartsClass      : 'chart',
       factSelector     : '#fact-selector',
       reset            : '#reset',
       resize           : '#resize',
+      addchart         : '#addchart',
       zoom             : 'zoom'
     },
+    palettes : ["YlGn", "GnBu", "BuPu", "RdPu", "PuRd", "OrRd", "YlOrRd", "YlOrBr", "PuOr", "BrBG", "PRGn", "PiYG", "RdBu", "RdGy", "RdYlBu", "RdYlGn"],
     txts : {
       charts : {
         map : 'Choropleth map',
@@ -74,7 +78,9 @@ var analytics = {
       factSelector : {
         cubes    : 'Cubes available:',
         measures : 'Measures available:'
-      }
+      },
+      hiddenChart : 'This chart is hidden because the dimension shown is aggregated',
+      changeCube : 'You are changing the cube beeing studied. If you continue, your current analysis of this cube will be lost. Do you want to continue?'
     },
     tips : {
       charts : {}
@@ -100,13 +106,379 @@ analytics.init = function (queryAPI, state) {
   analytics.state.initMeasure();
   analytics.state.initDimensions();
   analytics.data.load();
-  analytics.display.initRender();
+  analytics.display.render();
 };
+
+analytics.setCsts = function (csts) {
+  function setCstsRec (cstsObject, toAdd) {
+    for (var cstKey in toAdd) {
+      var typeOld = Array.isArray(cstsObject[cstKey]) ? 'array' : typeof cstsObject[cstKey];
+      var typeNew = Array.isArray(toAdd[cstKey]) ? 'array' : typeof toAdd[cstKey];
+
+      if (typeOld == 'object' && typeNew == 'object') {
+        setCstsRec(cstsObject[cstKey], toAdd[cstKey]);
+      }
+      else if (typeof typeOld != 'undefined' && typeof typeOld != 'object' && typeNew != 'undefined' && typeNew != 'object') {
+        cstsObject[cstKey] = toAdd[cstKey];
+      }
+    }
+  }
+
+  setCstsRec (analytics.csts, csts);
+};
+
+analytics.reset = function() {
+  analytics.data.reset();
+  analytics.state.reset();
+  analytics.display.reset();
+  dc.deregisterAllCharts();
+  dc.renderlet(null);
+};
+
 
 /**
 ## analytics.**query** namespace
 
 This namespace helps query the OLAP cube by specifying the API provided to it in order to perform the queries.
+
+### init
+
+Initialize the QueryAPI dependency of Query
+
+### getSchemas
+
+Get schemas list
+
+### getCubes
+
+Get cubes of a schema
+
+### getMesures
+
+Get mesures of a cube and a schema
+
+Measures are members of the only level of the only hierarchy of the dimension with type `Measure`
+
+```js
+"idMeasure" : {
+    "caption" : "theMeasure",
+    "unit" : "theUnit"
+}
+```
+
+### getCubesAndMeasures
+
+Get a list of cubes and for each the measures of this cube
+
+### getDimensions
+
+Get dimensions of a cube in a given schema
+
+This wil return a map of id : dimensionMap as the following example
+
+```js
+"idDimension" : {
+    "caption" : "theCaption",
+    "type" : "theType"
+}
+```
+
+### getGeoDimension
+
+Get the id of the geographic dimension
+
+### getTimeDimension
+
+Get the id of the time dimension
+
+### getXXDimension
+
+Get the id of the XXXX dimension
+
+### getGeoProperty
+
+Return the geographical property of a dimension
+
+### getHierarchies
+
+Get the list of hierarchies of a dimension
+
+### getLevels
+
+Get the list of levels of a hierachy. Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
+
+```js
+[
+  "Countries", //caption of the level at 0 position
+  "Regions"    //caption of the level at 1 position
+]
+```
+
+### getMembers
+
+Get the list of members
+
+If parentMember parameter is not set, returns the map of all members of the specified level with or without the properties values depending on the properties parameter.
+
+If parentMember parameter is set (parentMember being a member of the level idLevel), returns the map of all members descending from this member from the level idlevel + descendingLevel.
+
+Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
+
+```js
+{
+ "FR" : // member key
+   {
+     "caption" : "France",
+     "geometry" : {<geoJSONofFrance>}, // property area value
+     "area" : 123.5 // property area value
+   },
+ "BE" :
+   {
+     "caption" : "Belgium",
+     "geometry" : {<geoJSONofBelgium>},
+     "area" : 254.1
+   },
+   ...
+}
+```
+
+### getMembersInfos
+
+Get the list of member objects from their IDs
+
+Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
+
+```js
+{
+ "FR" : // member key
+   {
+     "caption" : "France",
+     "geometry" : {<geoJSONofFrance>}, // property area value
+     "area" : 123.5 // property area value
+   },
+ "BE" :
+   {
+     "caption" : "Belgium",
+     "geometry" : {<geoJSONofBelgium>},
+     "area" : 254.1
+   },
+   ...
+}
+```
+
+### getProperties
+
+Get the list of properties of a level
+
+```js
+{
+  "geom" : {
+    "caption" : "Geom",
+    "type" : "Geometry"
+  },
+  "surf" : {
+    "caption" : "Surface",
+    "type" : "Standard"
+  }
+}
+```
+
+### drill
+
+Select a cube
+
+### push
+
+Add a measure to the list of measures you want to get values of.
+
+### pull
+
+Remove a measure from the list.
+
+### slice
+
+Select a list of members from an hierarchy.
+
+### project
+
+Remove the slice set on an hierarchy.
+
+### filter
+
+Apply a filter rule on the members of an hierarchy.
+
+### rank
+
+Rank the results.
+
+### execute
+
+Execute the query.
+
+### clear
+
+Clear the query.
+
+### checkAPIResponse
+
+Checks the given response from the QueryAPI component
+
+Throws exception is the given response from the QueryAPI is malformed or contains an error code
+
+### isAllowedDimensionType
+
+Determines if the given type is a legal type of dimension
+
+### cacheSchema
+
+Store the given schema in the metadatas cache
+
+### cacheCube
+
+Store the given cube in the metadatas cache into the given schema
+
+### cacheDimension
+
+Store the given dimension in the metadatas cache into the given cube
+
+### cacheHierarchy
+
+Store the given hierarchy in the metadatas cache into the given dimension
+
+### cacheLevel
+
+Store the given level in the metadatas cache into the given hierarchy
+
+### cacheProperty
+
+Store the given property in the metadatas cache into the given level
+
+### isSchemaInCache
+
+Determines if a schema with the given id is in the metadata cache
+
+### isCubeInCache
+
+Determines if a cube with the given id is in the given schema in the metadata cache
+
+### isDimensionInCache
+
+Determines if a dimension with the given id is in the given cube in the metadata cache
+
+### isHierarchyInCache
+
+Determines if a hierarchy with the given id is in the given dimension in the metadata cache
+
+### isLevelInCache
+
+Determines if a level with the given id is in the given hierarchy in the metadata cache
+
+### isPropertyInCache
+
+Determines if a property with the given id is in the given level in the metadata cache
+
+### isCacheEmpty
+
+Determines if the metadatas cache is absolutely empty
+
+### isCubesListEmpty
+
+Determines if the given schema in metadatas cache contains cubes
+
+### isDimensionsListEmpty
+
+Determines if the given cube in metadatas cache contains dimensions
+
+### isHierarchiesListEmpty
+
+Determines if the given dimension in metadatas cache contains hierarchies
+
+### isLevelsListEmpty
+
+Determines if the given hierarchy in metadatas cache contains levels
+
+### isPropertiesListEmpty
+
+Determines if the given level in metadatas cache contains properties
+
+### clearCache
+
+Clear the metadatas cache and the schemas poperty
+
+```js
+>>>this.isCacheEmpty();
+false
+>>>this.clearCache();
+>>>this.isCacheEmpty();
+true
+```
+
+### getSchemasFromCache
+
+Retrieve the list of schemas from the cache as a flat map of strings idSchema : caption
+
+### getCubesFromCache
+
+Retrieve the list of cubes of a schema from the cache as a flat map of strings idCube : caption
+
+### getDimensionsFromCache
+
+Retrieve the list of dimensions of a cube from the cache as a map of strings
+
+```js
+"idDimension" : {
+    "caption" : "theCaption",
+    "type" : "theType"
+}
+```
+
+### getHierarchiesFromCache
+
+Retrieve the list of hierarchies of a dimension from the cache as a map of strings
+
+```js
+{
+"idHierarchyA" : "captionHierarchyA",
+"idHierarchyB" : "captionHierarchyB"
+}
+```
+
+### getLevelsFromCache
+
+Retrieve the list of levels of a hierarchy from the cache as an array of strings Note that the strings are the captions of the levels, not their id
+
+```js
+[
+"captionHierarchyA",
+"captionHierarchyB"
+]
+```
+
+### getPropertiesFromCache
+
+Retrieve the list of properties of a level from the cache
+
+```js
+{
+  "geom" : {
+    "caption" : "Geom",
+    "type" : "Geometry"
+  },
+  "surf" : {
+    "caption" : "Surface",
+    "type" : "Standard"
+  }
+}
+```
+
+### getLevelIDFromIndex
+
+Get the level’s ID from its index
+
+### mapWithCaptionToSimpleMap
+
+Transform a deep map\<id:map\<caption\>\> with a caption attribute into a flat map\<id:caption\>
+
 **/
 analytics.query = (function() {
 
@@ -1681,6 +2053,9 @@ analytics.data = (function() {
   // *analytics.data.measure[]* list of measures loaded
   var _measuresLoaded = [];
 
+  // *analytics.data.dimension[]* list of measures loaded
+  var _dimensionsLoaded = [];
+
   // *crossfilter* crossfilter object containing the dataset
   var _dataCrossfilter;
 
@@ -1703,12 +2078,12 @@ analytics.data = (function() {
   }
 
   /**
-  ### *boolean* data.**isClientSideAggrPossible**()
+  ### *boolean* data.**isClientSideAggrPossible**([*int* value])
 
   Indicate if we should use client or server side aggregates.
   **/
-  function isClientSideAggrPossible() {
-    return numberOfCrossedMembers() < 20000;
+  function isClientSideAggrPossible(value) {
+    return (value ? value : numberOfCrossedMembers()) < analytics.csts.crossfilterClientVsServerThreshold;
   }
 
   /**
@@ -1756,6 +2131,7 @@ analytics.data = (function() {
 
     // set dimensions to get
     var dimensions = analytics.state.dimensions();
+    _dimensionsLoaded = [];
     var hierachiesList = [];
 
     for (var index in dimensions) {
@@ -1764,6 +2140,7 @@ analytics.data = (function() {
       if (!dimension.aggregated()) {
         var members = dimension.getLastSlice();
         var hierarchy = dimension.hierarchy();
+        _dimensionsLoaded.push(dimension);
         hierachiesList.push(hierarchy);
         analytics.query.slice(hierarchy, Object.keys(members));
       }
@@ -1800,6 +2177,7 @@ analytics.data = (function() {
 
     // set dimensions to get
     var dimensions = analytics.state.dimensions();
+    _dimensionsLoaded = dimensions.slice();
     for (i in dimensions) {
       var dimension = dimensions[i];
       metadata.dimensions[dimension.id()] = {
@@ -1824,31 +2202,63 @@ analytics.data = (function() {
 
   Load data from the cube according to the last slices & dices and creates a crossfitler dataset with it.
   **/
-  // TODO add a try/catch around this
   _data.load = function() {
-    if (isClientSideAggrPossible()) {
-      return getDataClientAggregates();
-    } else {
-      return getDataServerAggregates();
+    try {
+      if (isClientSideAggrPossible()) {
+        return getDataClientAggregates();
+      } else {
+        return getDataServerAggregates();
+      }
+    }
+    catch(err) {
+      new PNotify({
+        title: 'Error while loading data',
+        type: 'error'
+      });
     }
   };
 
   /**
   ### *crossfilter* data.**loadIfNeeded**()
 
-  Calls `data.load()` if extra measures used in charts are not already loaded. Should be called if you changed
-  extra measures used by charts.
+  Call this function if you added changed extra measures on charts, or aggregated/deaggregated a dimension. It
+  will call `data.load()` if currently loaded data are not sufficient or not optimal regarding which crossfilter
+  version we should use (client or server).
   **/
   _data.loadIfNeeded = function() {
+
+    var i;
+
+    // if we need to load a new measure
     var measuresLoadedIds = _measuresLoaded.map(function (m) { return m.id(); });
     var measuresToLoad = analytics.display.getExtraMeasuresUsed();
 
-    for (var i in measuresToLoad) {
-      // if we need to reload, do it and exit
+    for (i in measuresToLoad) {
       if (measuresLoadedIds.indexOf(measuresToLoad[i].id()) < 0) {
         _data.load();
         return true;
       }
+    }
+
+    // if we need to load a new dimension
+    var dimensionsLoadedIds = _dimensionsLoaded.map(function (d) { return d.id(); });
+    var dimensionsToLoad = analytics.state.dimensions().filter(function (d) { return !d.aggregated(); });
+
+    for (i in dimensionsToLoad) {
+      if (dimensionsLoadedIds.indexOf(dimensionsToLoad[i].id()) < 0) {
+        _data.load();
+        return true;
+      }
+    }
+
+    // if we can switch from server to client (we aggegated enough)
+    var sizeOld = _dimensionsLoaded.reduce(function (old, dimension) { return old * Object.keys(dimension.getLastSlice()).length; }, 1);
+    var clientOld = isClientSideAggrPossible(sizeOld);
+    var clientNew = isClientSideAggrPossible();
+
+    if (!clientOld && clientNew) {
+      _data.load();
+      return true;
     }
 
     return false;
@@ -1864,7 +2274,7 @@ analytics.data = (function() {
 
     if (dimension._crossfilterDimension === null) {
       dimension._crossfilterDimension = _dataCrossfilter.dimension(function(d) { return d[dimension.id()]; });
-      if (filters.length) {
+      if (filters !== undefined && filters.length) {
         dimension._crossfilterDimension.filterFunction(function (d) {
           for(var i = 0; i < filters.length; i++) {
             if (filters[i] == d)
@@ -1942,8 +2352,20 @@ analytics.data = (function() {
     }
   };
 
-_data._measuresLoaded = _measuresLoaded;
-_data._dataCrossfilter = _dataCrossfilter;
+_data._data = function() { return _data; };
+_data._measuresLoaded = function() { return _measuresLoaded; };
+_data._dataCrossfilter = function() { return _dataCrossfilter; };
+_data.numberOfCrossedMembers = numberOfCrossedMembers;
+_data.isClientSideAggrPossible = isClientSideAggrPossible;
+_data.setCrossfilterData = setCrossfilterData;
+_data.getDataClientAggregates = getDataClientAggregates;
+_data.getDataServerAggregates = getDataServerAggregates;
+
+_data.reset = function () {
+  _data = {};
+  _measuresLoaded = [];
+  _dataCrossfilter = undefined;
+};
 
 
   return _data;
@@ -2104,11 +2526,11 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   var _levels      = levels;
   var _properties  = properties;
 
-  var _membersStack = []; // stack of all slice done on this hierarchy
-  var _filters      = []; // list of selected elements on the screen for the last level of the stack
-  var _filtersStack = []; // stack of all the filters slice done on this hierarchy
-  
-  var _colors = ["#6BBAFF", "#51AEFF", "#36A2FF", "#1E96FF", "#0089FF", "#0061B5"];
+  var _stack = []; // stack of all slice done on this hierarchy
+
+  var _scaleType    = 'quantile';
+  var _colorPalette = analytics.csts.palettes[analytics.data.dimension.nextI++ % analytics.csts.palettes.length];
+  var _nbBins       = 4;
 
   _dimension._crossfilterDimension = null; // crossfilter element for this dimension
   _dimension._crossfilterGroups = {}; // crossfilter element for the group of this dimension
@@ -2129,7 +2551,6 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   * *string* data.dimension.**type**()
   * *data.property[]* data.dimension.**properties**() : list of properties to load with members
   * *data.property* data.dimension.**getGeoProperty**() : return null or the geometrical property
-  * *mixed* data.dimension.**colors**(colors) : get of set a color palette for this dimension
   * *mixed* data.dimension.**aggregated**(*boolean* aggregate) : getter / setter indicating if we need to aggregate the dimension or not
   * *boolean* data.dimension.**equals**(*data.dimension* other)
   **/
@@ -2161,18 +2582,13 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
     return _properties;
   };
 
-  _dimension.filtersStack = function () {
-    return _filtersStack;
-  };
-
   _dimension.currentLevel = function() {
-    return _membersStack.length - 1;
+    if (!_aggregated)
+      return _stack.length - 1;
+    else
+      return 0;
   };
 
-  _dimension.currentLevelfiltersStack = function() {
-    return _filtersStack.length - 1;
-  };
-  
   _dimension.maxLevel = function() {
     return _levels.length - 1;
   };
@@ -2185,15 +2601,30 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
     return null;
   };
 
-  _dimension.colors = function (colors) {
-    if (!arguments.length) return _colors;
-    _colors = colors;
-    return _dimension;
-  };
-
   _dimension.aggregated = function (aggregate) {
     if (!arguments.length) return _aggregated;
     _aggregated = aggregate;
+
+    if (_aggregated) {
+      _dimension.crossfilterDimension().filterAll();
+    }
+    else {
+      var filters = _dimension.filters();
+      if (filters.length > 0) {
+        _dimension.crossfilterDimension().filterFunction(function (d) {
+          for(var i = 0; i < filters.length; i++) {
+            if (filters[i] == d)
+              return true;
+          }
+          return false;
+        });
+      }
+      else {
+        _dimension.crossfilterDimension().filterAll();
+      }
+    }
+
+    return _dimension;
   };
 
 
@@ -2242,53 +2673,45 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   **/
 
   _dimension.membersStack = function () {
-    return _membersStack;
+    return _stack.map(function (level) { return level.members; });
+  };
+
+  _dimension.filtersStack = function () {
+    return _stack.map(function (level) { return level.filters; });
   };
 
   _dimension.equals = function (other) {
     return (typeof other.id == "function") && (_id === other.id());
   };
 
-
-
   _dimension.addSlice = function (members) {
-    _membersStack.push(members);
+    _stack.push({members : members, filters: []});
     return _dimension;
   };
-  
-  _dimension.addSliceToFiltersStack = function (filters) {
-    _filtersStack.push(filters);
-    return _dimension;
-  };
-  
+
   _dimension.removeLastSlice = function () {
-    _membersStack = _membersStack.slice(0, -1);
+    _stack = _stack.slice(0, -1);
     return _dimension;
   };
 
-  _dimension.removeLastSliceFromFiltersStack = function () {
-    _filtersStack = _filtersStack.slice(0, -1);
-    return _dimension;
-  };
-  
   _dimension.getLastSlice = function () {
-    return _membersStack[_membersStack.length - 1];
+    return _dimension.getSlice(_stack.length - 1);
   };
 
-  _dimension.getLastSliceFromFiltersStack = function () {
-    return _filtersStack[_filtersStack.length - 1];
+  _dimension.getLastFilters = function () {
+    return _dimension.getFilters(_stack.length - 1);
   };
-  
+
   _dimension.getSlice = function (level) {
-    return _membersStack[level];
+    return _stack[level].members;
   };
-  
-  _dimension.getSliceFromFiltersStack = function (level) {
-    return _filtersStack[level];
+
+  _dimension.getFilters = function (level) {
+    return _stack[level].filters;
   };
 
   _dimension.isDrillPossible = function () {
-    return (_dimension.currentLevel() < _dimension.maxLevel());
+    return (_dimension.currentLevel() < _dimension.maxLevel() && !_isPartialDrillDown);
   };
 
   _dimension.isRollPossible = function () {
@@ -2297,6 +2720,15 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
 
   _dimension.nbRollPossible = function () {
     return _dimension.currentLevel();
+  };
+
+  // TODO Replace this by the better approch:
+  // https://github.com/loganalysis/analytics/wiki/Handling-drill-down-&--roll-up#full-support
+  var _isPartialDrillDown = false;
+  _dimension.isPartialDrillDown = function (isPartialDrillDown) {
+    if (!arguments.length) return _isPartialDrillDown;
+    _isPartialDrillDown = isPartialDrillDown;
+    return _dimension;
   };
 
   /**
@@ -2310,8 +2742,8 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   * *this* data.dimension.**removeFilter**(*string* element)
   **/
   _dimension.filters = function (filters) {
-    if (!arguments.length) return _filters;
-    _filters = filters;
+    if (!arguments.length) return _dimension.getLastFilters();
+    _stack[_stack.length - 1].filters = filters;
     return _dimension;
   };
 
@@ -2320,36 +2752,124 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   };
 
   _dimension.addFilter = function (element) {
+    var _filters = _dimension.getLastFilters();
     if (_filters.indexOf(element) < 0)
       _filters.push(element);
     return _dimension;
   };
 
   _dimension.removeFilter = function (element) {
+    var _filters = _dimension.getLastFilters();
     if (_filters.indexOf(element) >= 0)
       _filters.splice(_filters.indexOf(element));
     return _dimension;
   };
 
   /**
-  ### Crossfilter objects
+  ### Scale
 
-  You can get crossfilter objects related to this dimension using the following getters:
+  To handle the color scale of the dimension, the following functions are available:
+
+  * *string[]* data.dimension.**colors**() : get the list of color of the bins (CSS HEX code in string) for this dimension
+  * *mixed* data.dimension.**scaleType**(*string* type) : get or set the type of scale (`quantize` for a linear quantization,
+      `quantile` for quantiles, `natural` for Jenks Natural Breaks).
+  * *mixed* data.dimension.**colorPalette**(*string* colorPalette) : get or set the name of the [colorbewer](colorbrewer2.org)
+      palette to use for this dimension.
+  * *nbBins* data.dimension.**nbbins**(*int* nb) : get or set the number of bins of the color scale.
+  * *d3.scale* data.dimension.**scale**() : get the d3 scale of the dimension
+  **/
+  _dimension.colors = function () {
+    return colorbrewer[_colorPalette][_nbBins];
+  };
+
+  _dimension.scaleType = function (scaleType) {
+    if (!arguments.length) return _scaleType;
+    _scaleType = scaleType;
+    return _dimension;
+  };
+
+  _dimension.colorPalette = function (colorPalette) {
+    if (!arguments.length) return _colorPalette;
+    _colorPalette = colorPalette;
+    return _dimension;
+  };
+
+  _dimension.nbBins = function (nbBins) {
+    if (!arguments.length) return _nbBins;
+    _nbBins = nbBins;
+    return _dimension;
+  };
+
+  _dimension.scale = function () {
+
+    // Jenks natural breaks will fail if we have equal or less data than classes
+    if (_scaleType == 'natural' && _dimension.crossfilterGroup().all().length <= _nbBins)
+      _scaleType = 'quantize';
+
+    switch (_scaleType) {
+
+      case 'natural':
+      return d3.scale.threshold()
+        .domain(ss.jenks(_dimension.crossfilterGroup().all().map(function(d) { return d.value; }), _nbBins).splice(1, _nbBins - 1))
+        .range(_dimension.colors());
+
+      case 'quantize':
+
+      var min = _dimension.crossfilterGroup().order(function (d) { return -d; }).top(1)[0].value;
+      var max = _dimension.crossfilterGroup().order(function (d) { return  d; }).top(1)[0].value;
+
+      return d3.scale.quantize()
+        .domain([min, max])
+        .range(_dimension.colors());
+
+      case 'quantile':
+
+      return d3.scale.quantile()
+        .domain(_dimension.crossfilterGroup().all().map(function(d) { return d.value; }))
+        .range(_dimension.colors());
+    }
+  };
+
+  /**
+  ### Data & crossfilter objects
+
+  You can get data & crossfilter objects related to this dimension using the following getters:
 
   * *crossfilter.dimension* data.dimension.**crossfilterDimension**()
   * *crossfilter.group* data.dimension.**crossfilterGroup**([*data.measure[]* extraMeasures]) :
     get a crossfilter group, optionally with extra measures (see data.getCrossfilterGroup for more details)
+  * *float* data.dimension.**getTotal**() : returns the total for the selected members of the dimension
   **/
   _dimension.crossfilterDimension = function () {
-    return analytics.data.getCrossfilterDimension(_dimension, _filters);
+    return analytics.data.getCrossfilterDimension(_dimension, _dimension.getLastFilters());
   };
 
   _dimension.crossfilterGroup = function (extraMeasures) {
     return analytics.data.getCrossfilterGroup(_dimension, extraMeasures);
   };
 
+  _dimension.getTotal = function () {
+    function hasFilter(el) {
+      return (_dimension.filters().length === 0 || _dimension.filters().indexOf(el) >= 0);
+    }
+
+    return _dimension.crossfilterGroup().all()
+          .filter(function (d) { return hasFilter(d.key); })
+          .map   (function (d) { return d.value; })
+          .reduce(function (a, b) { return a + b; }, 0.0);
+  };
+
+_dimension._levels = function (levels) {
+	if (!arguments.length) return _levels;
+    _levels = levels;
+    return _dimension;
+};
+
+
   return _dimension;
 };
+
+analytics.data.dimension.nextI = 0;
 
 /**
 ## analytics.**state** namespace
@@ -2525,7 +3045,7 @@ analytics.state = (function() {
 
   #### state.**drillDown**(*data.dimension* dimension, *string* member, *string* type)
 
-  Drill down on a given member of the given dimension and reload data.
+  Drill down on the given members of the given dimension and reload data.
 
   You can choose the type of drill-down with the `type` parameter, which can be:
 
@@ -2533,22 +3053,42 @@ analytics.state = (function() {
   * `selected`: Drill down on all the selected members, ie show the children of all these members at the same time (go from NUTS0 to Germany & France's NUTS1)
   * `partial`: Drill down on the given member and keep the current displayed members except the drilled one (go from NUTS0 to NUTS0 except Germany + Germany's NUTS1)
 
-  `partial` drill-down is not implemented yet.
+  **TODO:** `partial` drill-down implementation should be improved by following the explainations here:
+  <https://github.com/loganalysis/analytics/wiki/Handling-drill-down-&--roll-up#full-support>.
+
+  When moving to the new approch, edit data.dimension.js to remove isPartialDrillDown and restore isDrillPossible.
   **/
   state.drillDown = function (dimension, member, type) {
 
     if (dimension.isDrillPossible()) {
       var newMembers;
-
       switch (type) {
         case 'selected':
-        var toDrill = dimension.filters().length ? dimension.filters() : Object.keys(dimension.getLastSlice());
+        var members = dimension.filters().length ? dimension.filters() : Object.keys(dimension.getLastSlice());
         newMembers = {};
-        toDrill.forEach(function (member) {
+
+        // add new data
+        members.forEach(function (member) {
           var newMembersTemp = analytics.query.getMembers(_schema, _cube, dimension.id(), dimension.hierarchy(), dimension.currentLevel(), dimension.properties().length > 0, member);
           for (var newMember in newMembersTemp)
             newMembers[newMember] = newMembersTemp[newMember];
         });
+        break;
+
+        case 'partial':
+        dimension.isPartialDrillDown(true);
+        newMembers = {};
+        var newMembersTemp = dimension.getLastSlice();
+
+        // copy old data
+        for (var newMember in newMembersTemp)
+          if (newMember != member)
+            newMembers[newMember] = newMembersTemp[newMember];
+
+        // add new data
+        newMembersTemp = analytics.query.getMembers(_schema, _cube, dimension.id(), dimension.hierarchy(), dimension.currentLevel(), dimension.properties().length > 0, member);
+        for (newMember in newMembersTemp)
+          newMembers[newMember] = newMembersTemp[newMember];
         break;
 
         default:
@@ -2557,7 +3097,6 @@ analytics.state = (function() {
       }
 
       dimension.addSlice(newMembers);
-      dimension.addSliceToFiltersStack(dimension.filters());
       analytics.data.load();
     }
   };
@@ -2572,16 +3111,14 @@ analytics.state = (function() {
     nbLevels = Math.min(nbLevels, dimension.nbRollPossible());
 
     if (nbLevels > 0) {
-      var filtersLevelToApply = dimension.filtersStack().length - nbLevels;
-      var filtersToApply = dimension.getSliceFromFiltersStack(filtersLevelToApply);
-            
-      // remove last slice nbLevels times
-      for (var i = 0; i < nbLevels; i++){
-        dimension.removeLastSlice();
-        dimension.removeLastSliceFromFiltersStack();
-      }
 
-      dimension.filters(filtersToApply);
+      // remove the partialDrill flag
+      dimension.isPartialDrillDown(false);
+
+      // remove last slice nbLevels times
+      for (var i = 0; i < nbLevels; i++)
+        dimension.removeLastSlice();
+
       // reload data
       analytics.data.load();
     }
@@ -2603,8 +3140,7 @@ analytics.state = (function() {
         hierarchy    : dimension.hierarchy(),
         filters      : dimension.filters(),
         properties   : dimension.properties().map(function (property) { return property.id(); }),
-        membersStack : dimension.membersStack().map(function (members) { return Object.keys(members); }),
-        filtersStack : dimension.membersStack().map(function (filters) { return Object.keys(filters); })
+        membersStack : dimension.membersStack().map(function (members) { return Object.keys(members); })
       };
     });
 
@@ -2670,6 +3206,7 @@ analytics.state = (function() {
         dimension.membersStack.forEach(function (members, levelId) {
           dimensionObj.addSlice(analytics.query.getMembersInfos(savedState.schema, savedState.cube, dimension.id, dimension.hierarchy, levelId, members, dimension.properties.length > 0));
         });
+        dimensionObj.filters(dimension.filters);
 
         _dimensions.push(dimensionObj);
         dimensionsMap[dimensionObj.id()] = dimensionObj;
@@ -2685,6 +3222,26 @@ analytics.state = (function() {
       });
     }
   }
+
+state._schema = _schema;
+state._cube = _cube;
+state._measure = _measure;
+state._cubeObj = _cubeObj;
+state._measureObj = _measureObj;
+state._dimensions = _dimensions;
+state.setCubeAndMeasureCallback = setCubeAndMeasureCallback;
+state.getState = getState;
+state.setState = setState;
+
+state.reset = function () {
+  _schema     = null;
+  _cube       = null;
+  _measure    = null;
+  _cubeObj    = null;
+  _measureObj = null;
+  _dimensions = [];
+};
+
 
   return state;
 
@@ -2769,8 +3326,8 @@ analytics.display = (function() {
   };
 
   function getChartPosition(chart) {
-    for (var i in _charts)
-      for (var j in _charts[i])
+    for (var i = 0; i < _charts.length; i++)
+      for (var j = 0; j < _charts[i].length; j++)
         if (chart.selector() == _charts[i][j].selector())
           return {i : i, j : j};
 
@@ -2798,6 +3355,8 @@ analytics.display = (function() {
   To create charts, the following functions are available:
 
   * *charts.chart* display.**insertChart**(*charts.chart* chart, *int* column, *int* offset) : insert a chart on the interface, at the given position
+  * display.**addChart**() : add a new chart on the interface
+  * display.**deleteChart**(*charts.chart* chart) : remove a chart from the interface
   * display.**replaceChart**(*charts.chart* chart, *string* newType) : replace a chart with a new chart of the given `type`
   * display.**emptyChartsColumn**(*int* i) : remove all charts of the *i*-th column
   * display.**initCharts**() : initialize the charts default layout (1 map, 1 timeline, 1 bar, 1 pie, 1 table)
@@ -2805,6 +3364,7 @@ analytics.display = (function() {
       recreate charts from a given saved layout, using maps of dimensions and measures
   * display.**createWordClouds**(*data.dimension[]* dimensions) : create one wordcloud for each dimension of the dimensions given, and insert it in the first column
   * display.**assignDimensions**(*data.dimension[]* dimensions, *data.dimension* geoDimension, *data.dimension* timeDimension) : assign the dimensions to the charts
+  * display.**updateLayout**() : update the stored layout (returned by  `chartsInLayout()`) according to the real layout of the interface
   **/
   function insertChart(chart, column, offset) {
 
@@ -2832,12 +3392,33 @@ analytics.display = (function() {
       $(columnCharts[offset]).before(container);
   }
 
-    function replaceChart(chart, newType) {
+  function addChart() {
+    var chart = analytics.charts.wordcloud("#chart-" + _nextChartId++);
+    insertChart(chart, 1, 0);
+    display._displayParamsForm(chart, true);
+  }
+
+  function deleteChart(chart) {
     var pos = getChartPosition(chart);
     var selector = chart.selector();
+    $(selector).remove();
     chart.delete();
-    chart = analytics.charts[newType](selector);
-    _charts[pos.i][pos.j] = chart;
+    _charts[pos.i].splice(pos.j, 1);
+    return pos;
+  }
+
+  function replaceChart(chart, newType) {
+    // get old infos & delete old chart
+    var options = chart.options();
+    var selector = chart.selector();
+    var pos = deleteChart(chart);
+
+    // create new chart and restore options & position
+    chart = analytics.charts[newType]("#chart-" + _nextChartId++);
+    for (var option in options)
+      chart.setOption(option, options[option]);
+    insertChart(chart, pos.i, pos.j);
+
     return chart;
   }
 
@@ -2901,6 +3482,21 @@ analytics.display = (function() {
     }
   };
 
+  function updateLayout() {
+    var chartsMap = {};
+    display.charts().forEach(function (chart) {
+      chartsMap[chart.selectorName()] = chart;
+    });
+
+    _charts = [[], [], []];
+
+    for (var i = 0; i < 3; i++) {
+      var chartDivs = getColumn(i).children("div").each(function(j) {
+        _charts[i][j] = chartsMap[$(this).attr("id")];
+      });
+    }
+  }
+
   /**
   ### Charts' update
 
@@ -2908,10 +3504,14 @@ analytics.display = (function() {
 
   * display.**_displayParamsForm**(*charts.chart* chart) : show the form allowing to change the configuration of the given chart
   * display.**updateChart**(*charts.chart* chart, *Object* options) : modify the given chart with the given options
+  * display.**aggregateDimension**(*data.dimension* dimension, *boolean* aggregate) : aggregate (or deaggregate) a dimension and
+      update the interface accordingly.
+  * display.**_displayDimensionParamsForm**(*data.dimension* dimension) : show the form allowing to change the configuration of the given dimension
+  * display.**updateDimension(*data.dimension* dimension, *Object* options) : modify the given dimension with the given options
   * display.**freezeColorScales**()
   * display.**unfreezeColorScales**()
   **/
-  display._displayParamsForm = function (chart) {
+  display._displayParamsForm = function (chart, create) {
 
     var options = chart.options();
 
@@ -2977,7 +3577,7 @@ analytics.display = (function() {
     typeSelect.val(chart.type());
     sortSelect.val(options.sort);
     playerTimeoutSelect.val(options.playerTimeout);
-    labelChoiceSelect.prop("checked", options.labels);
+    labelChoiceSelect.prop("checked", options.labels === false ? "" : "checked");
     dimensionsSelects.each(function(i, el) {
       var dimension = chart.dimensions()[i];
       if (dimension)
@@ -3061,12 +3661,25 @@ analytics.display = (function() {
       updateChart(chart, options);
     });
 
+    // adapt form for create / update
+    $('#chartparams-cancel, #chartparams-delete').unbind('click').click(function() {
+      $('#chartparams').modal('hide');
+    });
+    if (create) {
+      $('#chartparams-cancel').click(function() { deleteChart(chart); });
+      $('#chartparams-delete').hide();
+    }
+    else {
+      $('#chartparams-delete').show().click(function() { deleteChart(chart); });
+    }
+
     // show modal
     $('#chartparams').modal('show');
   };
 
   function updateChart (chart, options) {
 
+    var doFilter = false;
     var doRender = false;
     var doRedraw = false;
     var loadData = false;
@@ -3078,10 +3691,18 @@ analytics.display = (function() {
     options.measures   = options.measures  .slice(0, nbMes) .filter(function (d) { return typeof d.id != "undefined"; });
 
     // check coherence
-    if (!analytics.charts[options.type].arePossibleDimensions(options.dimensions))
+    if (options.dimensions.filter(function (d) { return d.aggregated(); }).length) {
+      new PNotify('You cannot use aggregated dimensions');
+      return;
+    }
+    if (!analytics.charts[options.type].arePossibleDimensions(options.dimensions)) {
       new PNotify('Invalid dimensions selected');
-    if (!analytics.charts[options.type].arePossibleExtraMeasures(options.measures))
+      return;
+    }
+    if (!analytics.charts[options.type].arePossibleExtraMeasures(options.measures)) {
       new PNotify('Invalid axes selected');
+      return;
+    }
 
     // chart type change = new chart
     if (chart.type() != options.type) {
@@ -3093,6 +3714,7 @@ analytics.display = (function() {
     if (!arraysEquals(options.dimensions, chart.dimensions())) {
       chart.dimensions(options.dimensions);
       doRedraw = true;
+      doFilter = true;
     }
 
     // new measures
@@ -3118,9 +3740,6 @@ analytics.display = (function() {
       if (options.playerTimeout < 50)
         options.playerTimeout = 50;
       chart.setOption("playerTimeout", options.playerTimeout);
-      if (chart.player() !== undefined) {
-        chart.player().timeout(options.playerTimeout);
-      }
     }
 
     // Update display
@@ -3130,10 +3749,17 @@ analytics.display = (function() {
       if (isLoaded)
         analytics.display.redraw();
     }
-    else if (doRender)
+    else if (doRender) {
       chart.render();
-    else if (doRedraw)
+    }
+    else if (doRedraw) {
       chart.redraw();
+    }
+    if (doFilter) {
+      chart.element().filterAll();
+      filterChartAsDimensionState(chart);
+      chart.redraw();
+    }
   }
 
   var _frozenColorScales = false;
@@ -3145,6 +3771,79 @@ analytics.display = (function() {
   display.unfreezeColorScales = function () {
     _frozenColorScales = false;
   };
+
+  display.aggregateDimension = function (dimension, aggregate) {
+    dimension.aggregated(aggregate);
+    display.getChartsUsingDimension(dimension).forEach(function (chart) {
+      chart.disabled(aggregate);
+    });
+    analytics.data.loadIfNeeded();
+    display.redraw();
+  };
+
+  display._displayDimensionParamsForm = function (dimension) {
+
+    function generateHTML(color) {
+      var palette = colorbrewer[color][Object.keys(colorbrewer[color]).pop()];
+      var HTML = palette.map(function(color) { return '<span style="background: '+color+'"></span>'; }).reduce(function (a, b) { return a + b; });
+      return '<a class="color-palette" title="'+color+'">'+HTML+'</a>';
+    }
+
+    function setColor(color) {
+      $('#dimparam-color-button').html(generateHTML(color)+' <span class="caret"></span>');
+      $('#dimparam-color').val(color);
+      var min = Object.keys(colorbrewer[color]).shift();
+      var max = Object.keys(colorbrewer[color]).pop();
+      $('#dimparam-colors-nb').attr('min', min);
+      $('#dimparam-colors-nb').attr('max', max);
+      var nb = Math.min(Math.max(min, $('#dimparam-colors-nb').val()), max);
+      $('#dimparam-colors-nb').val(nb);
+    }
+
+    // init list of available palettes
+    if ($('#dimparam-color-dropdown li').length === 0) {
+      analytics.csts.palettes.forEach(function(color) {
+        $('#dimparam-color-dropdown').append('<li>'+generateHTML(color)+'</li>');
+      });
+
+      $('#dimparam-color-dropdown li a').click(function() {
+        setColor($(this).attr('title'));
+      });
+    }
+
+    // preset fields as current dimension value
+    setColor(dimension.colorPalette());
+    $('#dimparam-colors-nb').val(dimension.nbBins());
+    $('#dimparam-scale').val(dimension.scaleType());
+
+    // set callback for save
+    $('#dimparams-set').unbind('click').click(function() {
+      $('#dimparams').modal('hide');
+
+      var color = $('#dimparam-color').val();
+      var min = Object.keys(colorbrewer[color]).shift();
+      var max = Object.keys(colorbrewer[color]).pop();
+      var nb = Math.min(Math.max(min, $('#dimparam-colors-nb').val()), max);
+
+      var options = {
+        palette : color,
+        number  : nb,
+        scale   : $('#dimparam-scale').val(),
+      };
+      updateDimension(dimension, options);
+    });
+
+    // display modal
+    $('#dimparams').modal('show');
+  };
+
+  function updateDimension(dimension, options) {
+    dimension.colorPalette(options.palette);
+    dimension.nbBins(options.number);
+    dimension.scaleType(options.scale);
+
+    display.redraw();
+  }
 
   /**
   ### Charts' filters
@@ -3170,6 +3869,13 @@ analytics.display = (function() {
       charts[i].element().filterAll();
     }
   };
+
+  function filterChartAsDimensionState (chart) {
+    chart.dimensions()[0].filters().forEach(function (filter) {
+      if (!chart.element().hasFilter(filter))
+        chart.element().filter(filter);
+    });
+  }
 
   function filterChartsAsDimensionsState () {
 
@@ -3202,8 +3908,9 @@ analytics.display = (function() {
       }
     }
 
+    display.charts().forEach(function (chart) { chart.updateTitle(); });
     if (!_frozenColorScales) {
-      display.charts().map(function (chart) { chart.updateColors(); });
+      display.charts().forEach(function (chart) { chart.updateColors(); });
     }
   };
 
@@ -3244,6 +3951,11 @@ analytics.display = (function() {
 
       resize();
     });
+
+    // add a chart button
+    $(analytics.csts.css.addchart).click(function () {
+      addChart();
+    });
   }
 
   function initResize () {
@@ -3268,11 +3980,20 @@ analytics.display = (function() {
     $(window).on('resizeend', resize);
     $(window).on("column:resize:stop", resize);
 
-    //$(analytics.csts.css.columns).sortable({ distance: 20, connectWith: analytics.csts.css.columns });
-    //$(analytics.csts.css.columns).disableSelection();
+    // init charts drag/drop
+    $(analytics.csts.css.columnsSortable).sortable({
+      distance: 20,
+      connectWith: analytics.csts.css.columnsSortable,
+      handle: ".chart-header",
+      opacity: 0.6,
+      cursor: "move",
+      scroll: false,
+      update: function() {
+        updateLayout();
+        display.resize();
+      }
+    });
   }
-
-
 
   display.init = function () {
     initCharts();
@@ -3288,7 +4009,6 @@ analytics.display = (function() {
   * display.**showFactSelector**(*Object* cubesAndMeasures, *data.cube* cube, *data.measure* measure, *function* callback)
   * display.**resize**() : resize the charts
   * display.**rebuild**() : rebuild the charts
-  * display.**initRender**() : render the charts for the first time (will ask the charts to load the filters of the dimensions)
   * display.**render**() : render the charts
   * display.**redraw**() : redraw the charts
   **/
@@ -3311,13 +4031,8 @@ analytics.display = (function() {
     for (var i in charts) {
       charts[i].build();
     }
-  }
-
-  display.initRender = function () {
-    rebuild();
     filterChartsAsDimensionsState();
-    dc.renderAll();
-  };
+  }
 
   display.render = function () {
     rebuild();
@@ -3345,24 +4060,35 @@ analytics.display = (function() {
 
     if (dimension.isDrillPossible()) {
 
+      var toZoom, type;
+      if (keys.ctrl) {
+        toZoom = dimension.filters().length ? dimension.filters() : Object.keys(dimension.getLastSlice());
+        type = 'selected';
+      }
+      else if (keys.shift) {
+        toZoom = Object.keys(dimension.getLastSlice());
+        type = 'partial';
+      }
+      else {
+        toZoom = [member];
+        type = 'simple';
+      }
+
       // update display
       display.getChartsUsingDimension(dimension).forEach(function (chart) {
         if (chart.element()._onZoomIn !== undefined && chart.element().chartID() !== dcChartID) {
-          chart.element()._onZoomIn(member);
+          chart.element()._onZoomIn(toZoom);
         }
       });
 
       // update state
-      if (keys.ctrl)
-        analytics.state.drillDown(dimension, member, 'selected');
-      else
-        analytics.state.drillDown(dimension, member, 'simple');
+      analytics.state.drillDown(dimension, member, type);
 
       // reset filter on charts using this dimension
       display.filterAllChartsUsingDimension(dimension);
 
       // update interface
-      display.render();
+      display.redraw();
     }
   };
 
@@ -3387,10 +4113,8 @@ analytics.display = (function() {
       // roll up state
       analytics.state.rollUp(dimension, nbLevels);
 
-      filterChartsAsDimensionsState();
-
       // update interface
-      display.render();
+      display.redraw();
     }
   };
 
@@ -3406,11 +4130,42 @@ analytics.display = (function() {
     return true;
   }
 
+display._nextChartId = function () { return _nextChartId; };
+display._charts = function () { return _charts; };
+display._resizableColumns = function () { return _resizableColumns; };
+display._savedColumnWidths = function () { return _savedColumnWidths; };
+display._frozenColorScales = function () { return _frozenColorScales; };
+display.getColumn = getColumn;
+display.getChartPosition = getChartPosition;
+display.insertChart = insertChart;
+display.replaceChart = replaceChart;
+display.emptyChartsColumn = emptyChartsColumn;
+display.initCharts = initCharts;
+display.updateChart = updateChart;
+display.filterChartsAsDimensionsState = filterChartsAsDimensionsState;
+display.initButtons = initButtons;
+display.initResize = initResize;
+display.resize = resize;
+display.rebuild = rebuild;
+display.arraysEquals = arraysEquals;
+
+display.reset = function () {
+  display.charts().forEach(function(chart) {
+    chart.delete();
+  });
+  _charts = [[],[],[]];
+  _nextChartId = 0;
+  _resizableColumns = undefined;
+  _savedColumnWidths = undefined;
+  _frozenColorScales = false;
+};
+
+
   return display;
 })();
 
 analytics.display.factSelector = (function () {
-  
+
   var FactSelector = {
 
     /**
@@ -3439,7 +4194,7 @@ analytics.display.factSelector = (function () {
     cubes : [],
 
     /**
-     * 
+     *
      */
     measures : [],
 
@@ -3628,7 +4383,9 @@ analytics.display.factSelector = (function () {
 
       element.list = $('<ul '+listClass+'></ul>');
 
-      var useCallback = function() { callback($(this).attr('data-id')); return false; };
+      var useCallback = function() {
+          callback($(this).attr('data-id')); return false;
+      };
 
       for (var elID in element.data) {
         var eltDescription = element.data[elID].description;
@@ -3738,9 +4495,22 @@ analytics.display.factSelector = (function () {
      * @private
      */
     selectMeasure : function (measureID) {
-      this.setSelectedMeasure(measureID);
-      this.callback(analytics.data.cube(this.cube,    this.data[this.cube].caption),
-                    analytics.data.measure(measureID, this.data[this.cube].measures[measureID].caption, this.data[this.cube].measures[measureID].description));
+      var that = this;
+
+      function changeCube() {
+        that.setSelectedMeasure(measureID);
+        that.callback(analytics.data.cube(that.cube,    that.data[that.cube].caption),
+                      analytics.data.measure(measureID, that.data[that.cube].measures[measureID].caption, that.data[that.cube].measures[measureID].description));
+      }
+
+      if (this.displayedCube != this.cube) {
+        bootbox.confirm(analytics.csts.txts.changeCube, function(result) {
+          if (result)
+            changeCube();
+        });
+      }
+      else
+        changeCube();
     },
 
     /**
@@ -3758,6 +4528,7 @@ analytics.display.factSelector = (function () {
   return FactSelector;
 
 })();
+
 analytics.charts = {};
 
 
@@ -3773,9 +4544,10 @@ Creates a player object for the given chart.
 analytics.charts.player = function (chart) {
 
   var _dimension = chart.dimensions()[0];
-  var _members = Object.keys(_dimension.getLastSlice()).sort();
+  var _members = chart.element().hasFilter() ? chart.element().filters() : Object.keys(_dimension.getLastSlice());
+  _members.sort();
+
   var _currentMember = 0;
-  var _timeout = chart.options().playerTimeout;
   var _running = true;
   var _callback = function () { };
   var _chart = chart;
@@ -3785,6 +4557,11 @@ analytics.charts.player = function (chart) {
   var _step = function() {
     if (_currentMember > _members.length - 1) {
       _callback();
+      _chart.element().filterAll();
+      _members.forEach(function (member) {
+        _chart.element().filter(member);
+      });
+      dc.redrawAll();
       return;
     }
 
@@ -3800,31 +4577,23 @@ analytics.charts.player = function (chart) {
 
     _currentMember++;
 
-    setTimeout(_step, _play.timeout());
+    setTimeout(_step, _chart.options().playerTimeout);
   };
 
   /**
   ### Player object
 
   * *boolean* charts.player.**running**()
-  * *mixed* charts.player.**timeout**([*integer* timeout])
   * *mixed* charts.player.**callback**([*function* cb])
   * *this* charts.player.**start**()
   * *this* charts.player.**pause**()
 
   The optional `callback` is called at the end of the play.
-  The timeout is the time to wait between two members.
 
   **/
 
   _play.running = function () {
     return _running;
-  };
-
-  _play.timeout = function(timeout) {
-    if (!arguments.length) return _timeout;
-    _timeout = timeout;
-    return _play;
   };
 
   _play.callback = function(cb) {
@@ -3835,7 +4604,7 @@ analytics.charts.player = function (chart) {
 
   _play.start = function() {
     _running = true;
-    setTimeout(_step, _timeout);
+    setTimeout(_step, _chart.options().playerTimeout);
     return _play;
   };
 
@@ -3931,11 +4700,11 @@ analytics.charts.chart = (function () {
     };
 
     _chart.width = function() {
-      return $(_selector).width();
+      return $(_selector+' .chart-container').width();
     };
 
     _chart.height = function() {
-      var height = $(_selector).height() - $(_selector+' .chart-header').height();
+      var height = $(_selector).height() - $(_selector+' .chart-header').outerHeight() - $(_selector+' .chart-container').outerHeight() + $(_selector+' .chart-container').height();
       optionsHeight(height);
       return height;
     };
@@ -3981,13 +4750,36 @@ analytics.charts.chart = (function () {
     };
 
     _chart.setOption = function(key, value) {
-      if (typeof _chart._options[key] != 'undefined' && _chart._options[key] !== null)
+      if (typeof _chart._options[key] != 'undefined' && _chart._options[key] !== null && value !== null)
         _chart._options[key] = value;
       return _chart;
     };
 
     _chart.player = function () {
       return _player;
+    };
+
+    var _disabled = false;
+
+    _chart.disabled = function (disabled) {
+      if (!arguments.length) return _disabled;
+
+      // disable
+      if (disabled && !_disabled) {
+        if (_chart.element())
+          dc.deregisterChart(_chart.element());
+        $(_selector).addClass('chart-hidden');
+      }
+
+      // enable
+      else if (!disabled && _disabled) {
+        if (_chart.element())
+          dc.registerChart(_chart.element());
+        $(_selector).removeClass('chart-hidden');
+      }
+
+      _disabled = disabled;
+      return _chart;
     };
 
     // display main functions
@@ -3997,32 +4789,42 @@ analytics.charts.chart = (function () {
                 initResize();       // jshint ignore:line
         _chart._initContainerSpecific();
                 initHeader();       // jshint ignore:line
-        _chart._createDcElement();
-                initChartCommon();  // jshint ignore:line
-        _chart._initChartSpecific();
+        if (!_disabled) {
+          _chart._createDcElement();
+                  initChartCommon();  // jshint ignore:line
+          _chart._initChartSpecific();
+        }
       }
 
       updateHeader();
-      updateChartCommon();
-      _chart._updateChartSpecific();
+      _chart._updateHeaderSpecific();
+      if (!_disabled) {
+        updateChartCommon();
+        _chart._updateChartSpecific();
+      }
       return _chart;
     };
 
     _chart.render = function() {
-      _chart.build().element().render();
+      _chart.build();
+      if (!_disabled)
+        _chart.element().render();
       return _chart;
     };
 
     _chart.redraw = function() {
       if (!_chart.element())
         return _chart.render();
-      _chart.build().element().redraw();
+      _chart.build();
+      if (!_disabled)
+        _chart.element().redraw();
       return _chart;
     };
 
     // display sub-functions
     function initContainer () {
-      $(_selector).html('<div class="chart-header"></div><div class="chart-container"></div>');
+      $(_selector).addClass("chart-"+_chart.type());
+      $(_selector).html('<div class="chart-header"></div><div class="chart-text">'+analytics.csts.txts.hiddenChart+'</div><div class="chart-container"></div>');
     }
 
     function initResize() {
@@ -4036,20 +4838,22 @@ analytics.charts.chart = (function () {
         .width(_chart.width())
         .height(_chart.height());
       _chart._resizeSpecific();
+      $(_selector).css('height', 'auto');
       return _chart.render();
     };
 
     _chart.updateColors = function () {
-      if (typeof _chart.element().colorDomain == 'function') {
+      if (typeof _chart.element().colors == 'function' && !_disabled) {
         _chart.element()
-          .colors(d3.scale.quantize().range(_dimensions[0].colors()))
-          .colorDomain(_chart._niceDomain(_dimensions[0].crossfilterGroup(_extraMeasures), analytics.state.measure().id()));
+          .colors(_dimensions[0].scale());
       }
       return _chart;
     };
 
     _chart.delete = function () {
-      dc.deregisterChart(_chart.element());
+      try {
+        dc.deregisterChart(_chart.element());
+      } catch (err) {}
       $(_selector).empty();
     };
 
@@ -4062,13 +4866,15 @@ analytics.charts.chart = (function () {
     * charts.chart.**_createDcElement**(): called to create the dc.js chart
     * charts.chart.**_initContainerSpecific**() : used to initialize elements aside from the dc.js chart
     * charts.chart.**_initChartSpecific**(): used to initialize the chart
-    * charts.chart.**_updateChartSpecific**() : called when the chart is updated
+    * charts.chart.**_updateHeaderSpecific**() : called when the chart is created or updated
+    * charts.chart.**_updateChartSpecific**() : called when the chart is created or updated
 
     **/
     _chart._resizeSpecific        = function () {};
     _chart._createDcElement       = function () {};
     _chart._initContainerSpecific = function () {};
     _chart._initChartSpecific     = function () {};
+    _chart._updateHeaderSpecific  = function () {};
     _chart._updateChartSpecific   = function () {};
 
     /**
@@ -4147,16 +4953,16 @@ analytics.charts.chart = (function () {
 
       // sort
       switch(_chart.options().sort) {
-        case 'key':
-        _chart.element().ordering(function (d) { return  d.key !== undefined ? d.key : d.data.key;   });
-        break;
-
         case 'valueasc':
         _chart.element().ordering(function (d) { return  d.value !== undefined ? d.value : d.data.value; });
         break;
 
         case 'valuedesc':
         _chart.element().ordering(function (d) { return d.value !== undefined ? -d.value : -d.data.value; });
+        break;
+
+        default: // key
+        _chart.element().ordering(function (d) { return  d.key !== undefined ? d.key : d.data.key;   });
         break;
       }
 
@@ -4204,6 +5010,7 @@ analytics.charts.chart = (function () {
 
               _player = undefined;
             });
+            _chart.element().filterAll();
             _player.start();
           } else if (_player.running()) {
              _player.pause();
@@ -4244,6 +5051,11 @@ analytics.charts.chart = (function () {
 
     function displayTitle () {
       if (_chart.params().displayTitle) {
+
+        var total = _dimensions[0].getTotal();
+        var totalSpan = $('<span class="chart-total" data-toggle="tooltip" data-placement="bottom" title="'+d3.format('.6s  s')(total)+'">'+
+          d3.format('.3s')(total) + ' </span>').tooltip({'container': 'body'});
+
         var measureTitle;
         var measureDescription = analytics.state.measure().description();
         var measureCaption = analytics.state.measure().caption();
@@ -4270,12 +5082,21 @@ analytics.charts.chart = (function () {
           dimensionTitle = dimensionCaption;
         }
 
-        $(_selector + ' .chart-title').html(analytics.state.cube().caption() + ' &bull; ')
-            .append(dimensionTitle).append(' &bull; ')
-            .append(_dimensions[0].levels()[_dimensions[0].currentLevel()] + ' &bull; ')
-            .append(measureTitle);
+        $(_selector + ' .chart-title').empty()
+            .append(measureTitle)                                          .append(' &bull; ')
+            .append(_dimensions[0].levels()[_dimensions[0].currentLevel()]).append(' &bull; ')
+            .append(dimensionTitle)                                        .append(' &bull; ')
+            .append(analytics.state.cube().caption())                      .append(' &bull; ')
+            .append('Total: ').append(totalSpan);
       }
     }
+
+    _chart.updateTitle = function () {
+      if (!_disabled) {
+        var total = _dimensions[0].getTotal();
+        $(_selector+" .chart-total").attr("title", d3.format(".6s")(total)).html(d3.format(".3s")(total));
+      }
+    };
 
     function displayParams () {
       if (_chart.params().displayParams) {
@@ -4311,6 +5132,66 @@ analytics.charts.chart = (function () {
     return _chart;
   }
 
+  /**
+  ### Chart configuration and inheritance
+
+  #### Options and parameters
+
+  Each chart is configured by two static objects `params` (static parameters of the chart)  and `options` (dynamic options of the chart):
+
+  ```js
+  chart.params = {
+    nbDimensionsMin     : 1,
+    nbDimensionsMax     : 1,
+    nbExtraMeasuresMin  : 0,
+    nbExtraMeasuresMax  : 0,
+    displayTitle        : true,
+    displayParams       : true,
+    displayLevels       : true,
+    displayCanDrillRoll : true,
+    displayTip          : true,
+    displayPlay         : false
+  };
+
+  chart.options = {
+    sort            : null,
+    labels          : null,
+    playerTimeout   : 300,
+    height          : 300,
+    heightReference : "px"
+  };
+  ```
+
+  `options` is meant to contain the default configuration of the chat that you will be able to modify during the life of the chart,
+  whereas `params` can't be modified and describe what the chart can do. If an option is set to `null`, it means that it's not
+  available for the given chart, and you can't modify it.
+
+  On your chart, you can redefine part of `params` and `options`.
+
+  #### Dimensions and measures
+
+  In addition to `params` object, the following static functions can be defined:
+
+  * charts.chart.**isPossibleDimension**(*data.dimension* dimension) : is the given dimension a good candidate to be used in the chart's dimensions
+  * charts.chart.**isPossibleExtraMeasure**(*data.measure* measure) : is the given measure a good candidate to be used in the chart's measures
+  * charts.chart.**arePossibleDimensionsSpecific**(*data.dimension[]* dimensions) : is the given list of dimensions possible
+  * charts.chart.**arePossibleExtraMeasuresSpecific**(*data.measure[]* measures) : is the given list of measures possible
+
+  These functions will be called by the two following static functions, available on each chart:
+
+  * charts.chart.**arePossibleDimensions**(*data.dimension[]* dimensions)
+  * charts.chart.**arePossibleExtraMeasures**(*data.measure[]* measures)
+
+  These functions will check if lists of dimensions and measures are possible, by checking that they match the min/max in `params`, that each
+  element match `isPossibleDimension/ExtraMeasure` and the list match `arePossibleDimensions/ExtraMeasuresSpecific`.
+
+  #### Inheritance
+
+  To inherit from the abstract and default `analytics.charts.chart`, you must call the static function
+  analytics.charts.chart.**extend**(**function** chartConstructor), with `chartConstructor` being the constructor of your chart.
+
+  For more explainations, see the tutorial [Adding a new chart](https://github.com/loganalysis/analytics/wiki/Adding-a-new-chart).
+  **/
   charts_chart_nostatic.params = {
     nbDimensionsMin     : 1,
     nbDimensionsMax     : 1,
@@ -4436,8 +5317,6 @@ analytics.charts.map = (function () {
 
     var _chart = analytics.charts.chart(selector, dimensions);
 
-    //_chart.arePossibleDimensionsSpecific = analytics.charts.map.arePossibleDimensionsSpecific;
-
     _chart.type = function() {
       return "map";
     };
@@ -4446,7 +5325,7 @@ analytics.charts.map = (function () {
     };
 
     _chart._createDcElement = function () {
-      _chart._element = dc.geoChoroplethChart(_chart.selector());
+      _chart._element = dc.geoChoroplethChart(_chart.selector()+' .chart-container');
     };
 
     _chart._initChartSpecific = function () {
@@ -4501,7 +5380,7 @@ analytics.charts.map = (function () {
       _chart.element()
         .dimension(dimension.crossfilterDimension())
         .group(dimension.crossfilterGroup())
-        .setNbZoomLevels(dimension.maxLevel() + 1)
+        .setNbZoomLevels(dimension.maxLevel())
 
         .title(function (d) {
           if (members[d.key] === undefined) {
@@ -4718,9 +5597,8 @@ analytics.charts.table = (function () {
     };
 
     _chart._initContainerSpecific = function () {
-      d3.select(_chart.selector()).attr('class', 'chart dc-chart');
-      d3.select(_chart.selector()).append('table');
-      d3.select(_chart.selector() + ' table').html("<thead><tr><th>Element</th><th>Value</th></tr></thead>");
+      $(_chart.selector() + ' .chart-container').addClass('chart dc-chart');
+      $(_chart.selector() + ' .chart-container').html('<table><thead><tr><th>Element</th><th>Value</th></tr></thead></table>');
     };
 
     _chart._createDcElement = function () {
@@ -4850,15 +5728,29 @@ analytics.charts.wordcloudWithLegend = (function () {
 
     _chart._initChartSpecific = function () {
       _chart.element()
-        .showLegend(_chart.selector()+'-legend')
+        .showLegend(_chart.selector()+' .wordcloud-legend')
         .colorCalculator(function (d) { return d ? _chart.element().colors()(d) : '#ccc'; });
+
+      $(_chart.selector()+' .chart-header').css('cursor', 'pointer');
+      $(_chart.selector()+' .chart-header').click(function () {
+        var dimension = _chart.dimensions()[0];
+        analytics.display.aggregateDimension(dimension, !dimension.aggregated());
+      });
     };
 
     _chart._initContainerSpecific = function () {
-      $(_chart.selector()).append('<div class="wordcloud">'+
-          '<div class="wordcloud-chart" id="'+_chart.selectorName()+'"></div>'+
-          '<div class="wordcloud-legend" id="'+_chart.selectorName()+'-legend"></div>'+
-        '</div>');
+      $(_chart.selector()).append('<div class="wordcloud-legend"></div><div class="btn-dimparams-container"><span class="btn-dimparams btn btn-xs btn-default"><i class="fa fa-nomargin fa-cog"></i></span></div>');
+
+      $(_chart.selector() + ' .btn-dimparams').click(function() {
+        analytics.display._displayDimensionParamsForm(_chart.dimensions()[0]);
+      });
+    };
+
+    _chart._updateHeaderSpecific = function () {
+      if (_chart.dimensions()[0].aggregated())
+        $(_chart.selector() + ' .chart-title').prepend('<i class="fa fa-chevron-right"></i>');
+      else
+        $(_chart.selector() + ' .chart-title').prepend('<i class="fa fa-chevron-down"></i>');
     };
 
     return _chart;
@@ -4904,6 +5796,7 @@ analytics.charts.bubble = (function () {
 
         .elasticY(true)
         .elasticX(true)
+        .elasticRadius(true)
 
         .renderHorizontalGridLines(true)
         .renderVerticalGridLines(true)

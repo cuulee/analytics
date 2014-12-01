@@ -72,3 +72,43 @@ NOSE_ARGS = [
 ]
 
 FIXTURES = True
+
+# analytics-js settings
+CSTS = {
+    'crossfilterClientVsServerThreshold' : 20000,
+    'resizeDelay' : 350,
+    'css' : {
+      'header'           : '.navbar',
+      'columnsContainer' : '#columns',
+      'columns'          : '.chart-columns',
+      'columnsSortable'  : '.chart-columns-sortable',
+      'charts'           : '.chart',
+      'chartsClass'      : 'chart',
+      'factSelector'     : '#fact-selector',
+      'reset'            : '#reset',
+      'resize'           : '#resize',
+      'addchart'         : '#addchart',
+      'zoom'             : 'zoom'
+    },
+    'palettes' : ['YlGn', 'GnBu', 'BuPu', 'RdPu', 'PuRd', 'OrRd', 'YlOrRd', 'YlOrBr', 'PuOr', 'BrBG', 'PRGn', 'PiYG', 'RdBu', 'RdGy', 'RdYlBu', 'RdYlGn'],
+    'txts' : {
+      'charts' : {
+        'map' : 'Choropleth map',
+        'bar' : 'Bar chart',
+        'pie' : 'Pie chart',
+        'timeline' : 'Timeline',
+        'bubble' : 'Bubble chart',
+        'table' : 'Table',
+        'wordcloud' : 'Word cloud chart'
+      },
+      'factSelector' : {
+        'cubes'    : 'Cubes available:',
+        'measures' : 'Measures available:'
+      },
+      'hiddenChart' : 'This chart is hidden because the dimension shown is aggregated',
+      'changeCube' : 'You are changing the cube beeing studied. If you continue, your current analysis of this cube will be lost. Do you want to continue?'
+    },
+    'tips' : {
+      'charts' : {}
+    }
+  }

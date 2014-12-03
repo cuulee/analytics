@@ -16,6 +16,10 @@ class Analysis(ResourceBase):
         """ Returns the absolute url of this analysis """
         return reverse('analytics.views.analysis_detail', None, [str(self.id)])
 
+    @property
+    def class_name(self):
+        return self.__class__.__name__
+
 class ChartTip(models.Model):
     CHART_TYPES = (
         ('map', 'Map'),

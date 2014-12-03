@@ -4,15 +4,23 @@
 
 {% block title %}{{ analysis.title }} — {{ block.super }}{% endblock %}
 
-{% block body_class %}analytics{% endblock %}
+{% block body_class %}data{% endblock %}
 
 {% block body_outer %}  
+<div class="page-header">
+  <a href="{% url "analyses_browse" %}" class="btn btn-primary pull-right">{% trans "Explore Analyses" %}</a>
+  <h2 class="page-title">{% trans "Edit Metadata" %}</h2>
+</div>
+
+<div class="row">
+  <div class="col-md-8">
+    <p class="lead">
+      {% blocktrans with analysis.title as analysis_title %}
+        Editing details for {{ analysis_title }}
+      {% endblocktrans %}
+    </p>
+
 <form class="form-horizontal" action="{% url "analysis_metadata" analysis.id %}" method="POST">
-  <legend>
-    {% blocktrans with analysis.title as analysis_title %}
-    Editing details for {{ analysis_title }}
-    {% endblocktrans %}
-  </legend>
   {% if analysis.metadata_uploaded %}
   <div style="background-color: orange;">{% blocktrans %}Note: this analysis's orginal metadata was populated by importing a metadata XML file.
     GeoNode's metadata import supports a subset of ISO, FGDC, and Dublin Core metadata elements.
@@ -34,7 +42,9 @@
             </ul>
         </div>
     {% endif %}
-    <br/>
+    <div class="form-actions">
+      <input type="submit" class="btn btn-primary" value="{% trans "Update" %}"/>
+    </div>
     {% csrf_token %}
     <div class="form-controls">
       {{ analysis_form|as_bootstrap }}
@@ -66,10 +76,12 @@
                 </div>
             {% endautoescape %}
         </fieldset>
-    <div class="form-actions">
-      <input type="submit" class="btn btn-primary" value="{% trans "Update" %}"/>
-    </div>
+        <div class="form-actions">
+          <input type="submit" class="btn btn-primary" value="{% trans "Update" %}"/>
+        </div>
   </form>
+  </div>
+</div>
 
 {% endblock %}
 {% block extra_script %}

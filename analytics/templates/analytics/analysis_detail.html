@@ -13,7 +13,7 @@
 {{ block.super }}
 {% endblock %}
 
-{% block body_class %}analysis{% endblock %}
+{% block body_class %}analytics{% endblock %}
 
 {% block body_outer %}
   {% overall_rating resource "analysis" as analysis_rating %}
@@ -31,16 +31,7 @@
       <!--</div>-->
 
       <div class="map-actions">
-        <ul class="nav nav-tabs">
-          <li class="active"><a href="#info" data-toggle="tab"><i class="icon-info-sign"></i>{% trans "Info" %}</a></li>
-
-          {% if SOCIAL_BUTTONS %}
-          <li><a href="#share" data-toggle="tab"><i class="icon-share"></i>{% trans "Share" %}</a></li>
-          {% endif %}
-
-          <li><a href="#rate" data-toggle="tab"><i class="icon-star"></i>{% trans "Ratings" %}</a></li>
-          <li><a href="#comments" data-toggle="tab"><i class="icon-comment"></i> {% trans "Comments" %}</a></li>
-        </ul>
+        {% include "_actions.html" %}
       </div>
 
       <div class="tab-content">
@@ -51,7 +42,7 @@
         <article class="tab-pane" id="rate">
         <!-- TODO: Move this to a reusable template snippet -->
           {% if request.user.is_authenticated %}
-          <h3>{% trans "Rate this Map" %}</h3>
+          <h3>{% trans "Rate this Analysis" %}</h3>
           {% user_rating request.user resource "analysis" as user_analysis_rating %}
           <div id="user_rating" class="category-map" data-score="{{ user_analysis_rating }}"></div>
           {% endif %}
@@ -138,20 +129,6 @@
           <a href="{% url "new_analysis" %}?copy={{ resource.id }}" class="btn btn-default btn-md btn-block">{% trans "Create a New Analysis" %}</a>
         </li>
 
-        {% if resource.is_public and "change_resourcebase" in resource_perms or resource.layer_group %}
-        <li class="list-group-item">
-          <h4>{% trans "Map WMS" %}</h4>
-          <dl>{% if resource.layer_group %}
-            <dt>{% trans "WMS layer group for local map layers" %}:</dt>
-            <dd><em>{{ resource.layer_group.name }}</em> ({% trans "on" %} <a href="{{ ows }}?service=WMS&request=GetCapabilities">{% trans "local OWS" %}</a>)</dd>
-            {% endif %}</dl>
-          {% if "change_resourcebase" in resource_perms %}
-          <p>{% trans "Publish local map layers as WMS layer group" %}</p>
-          <a href="{%url "map_wms" resource.id %}" class="btn btn-default btn-md btn-block">{% trans "Publish Map WMS" %}</a>
-          {% endif %}
-        </li>
-        {% endif %}
-
         {% include "base/_resourcebase_contact_snippet.html" %}
 
       </ul>
@@ -177,7 +154,6 @@
 {% else %}
       {% overall_rating resource "analysis" as the_analysis_rating %}
 {% endif %}
-<script type="text/javascript" src="{{ STATIC_URL}}geonode/js/thumbnail/map_thumbnail.js"></script>
 {% include 'rating.html' %}
 <script type="text/javascript">
 {% if SOCIAL_BUTTONS %}
@@ -200,12 +176,6 @@
     });
     return false;
   });
-
-{% if PRINT_NG_ENABLED %}
-  $('#set_thumbnail').click(function(){
-    return createMapThumbnail();
-  });
-{% endif %}
 
 </script>
 {% include "_permissions_form_js.html" %}

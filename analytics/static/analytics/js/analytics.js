@@ -3176,7 +3176,6 @@ analytics.state = (function() {
           dimensions[dimension.id].caption, dimensions[dimension.id].description, dimensions[dimension.id].type,
           dimension.hierarchy, levels, properties
         );
-        dimensionObj.filters(dimension.filters);
         dimension.membersStack.forEach(function (members, levelId) {
           dimensionObj.addSlice(analytics.query.getMembersInfos(savedState.schema, savedState.cube, dimension.id, dimension.hierarchy, levelId, members, dimension.properties.length > 0));
         });

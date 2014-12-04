@@ -1950,16 +1950,25 @@ dc.colorMixin = function (_chart) {
 
         var tdColor = _colorRow.selectAll("td").data(_colors.range());
 
+        var min = d3.min(_chart.data(), function (e) { return _chart.valueAccessor()(e); });
+        var max = d3.max(_chart.data(), function (e) { return _chart.valueAccessor()(e); });
+        var extent = max - min;
+
         // Displays the color row
         tdColor.enter().append("td");
         tdColor.exit().remove();
         tdColor
             .html("&nbsp;")
             .attr("style",function(d){
-                return "width: "+100/length+"%; background-color: "+d;
+                var begin = !isNaN(_colors.invertExtent(d)[0]) ? _colors.invertExtent(d)[0] : min;
+                var end   = !isNaN(_colors.invertExtent(d)[1]) ? _colors.invertExtent(d)[1] : max;
+                var currentExtent = end - begin;
+                return "width: "+100*(currentExtent/extent)+"%; background-color: "+d;
             })
-            .attr("title",function(d){
-                return _formatLegendNumber(_colors.invertExtent(d)[0])+"-"+_formatLegendNumber(_colors.invertExtent(d)[1]);
+            .attr("title",function(d, i){
+                var begin = !isNaN(_colors.invertExtent(d)[0]) ? _colors.invertExtent(d)[0] : min;
+                var end   = !isNaN(_colors.invertExtent(d)[1]) ? _colors.invertExtent(d)[1] : max;
+                return _formatLegendNumber(begin)+"-"+_formatLegendNumber(end);
             });
 
         // Displays the caption row
@@ -1969,7 +1978,7 @@ dc.colorMixin = function (_chart) {
         tdCaption.exit().remove();
         tdCaption
             .text(function(d){
-                return _formatLegendNumber(_colors.invertExtent(d)[0]);
+                return _formatLegendNumber(!isNaN(_colors.invertExtent(d)[0]) ? _colors.invertExtent(d)[0] : min);
             });
 
 
@@ -3792,13 +3801,13 @@ dc.wheelMixin = function(_chart) {
             alt   : d3.event.altKey,
             shift : d3.event.shiftKey
         }
-        if (!disabledActions.mousewheel && zoomIn && (d3.event.deltaY < 0 || d3.event.wheelDeltaY > 0) && _chart._callbackZoomIn !== undefined) {
+        if (!disabledActions.mousewheel && zoomIn && (d3.event.deltaY < 0 || d3.event.wheelDeltaY > 0 || d3.event.deltaX < 0 || d3.event.wheelDeltaX > 0) && _chart._callbackZoomIn !== undefined) {
             delayAction('mousewheel', 1500);
             _chart._zoomIn(d, keys);
         }
 
         // on zoomIn-out
-        else if (!disabledActions.mousewheel && zoomOut && (d3.event.deltaY > 0 || d3.event.wheelDeltaY < 0) && _chart._callbackZoomOut !== undefined) {
+        else if (!disabledActions.mousewheel && zoomOut && (d3.event.deltaY > 0 || d3.event.wheelDeltaY < 0 || d3.event.deltaX > 0 || d3.event.wheelDeltaX < 0) && _chart._callbackZoomOut !== undefined) {
             delayAction('mousewheel', 1500);
             _chart._zoomOut();
         }
@@ -5360,7 +5369,7 @@ dc.dataTable = function (parent, chartGroup) {
 
     function nestEntries() {
         var entries = _chart.dimension().top(_size);
-        
+
         return d3.nest()
             .key(_chart.group())
             .sortKeys(_order)
@@ -6919,13 +6928,17 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
     }
 
     _chart._zoomIn = function (d, keys) {
-        var elements = [];
-        if(keys.ctrl){
-            elements = _chart.filters();
-        } else {
-            elements.push(d.id);
-        }
-        _chart._onZoomIn(elements);
+        var toZoom;
+        var layerData = this.geoJsons()[this.geoJsons().length - 1].data;
+
+        if (keys.ctrl)
+            toZoom = _chart.filters().length ? _chart.filters() : layerData.map(function(d) { return d.id; });
+        else if (keys.shift)
+            toZoom = layerData.map(function(d) { return d.id; });
+        else
+            toZoom = [d.id];
+
+        _chart._onZoomIn(toZoom);
         _chart.callbackZoomIn()(d.id, _chart.chartID(), keys);
     };
 

@@ -21,18 +21,6 @@ class Analysis(ResourceBase):
     def class_name(self):
         return self.__class__.__name__
 
-class ChartTip(models.Model):
-    CHART_TYPES = (
-        ('map', 'Map'),
-        ('pie', 'Pie chart'),
-        ('bar', 'Bar chart'),
-        ('table', 'Table'),
-        ('timeline', 'Timeline'),
-        ('wordcloud', 'Wordcloud')
-    )
-    chart_type = models.CharField(max_length=10, choices=CHART_TYPES, unique=True)
-    message = models.TextField()
-
 class GeoMondrianRole(models.Model):
     """ Class used to connect users to GeoMondrian roles """
     rolename = models.CharField(max_length=100, unique=True)

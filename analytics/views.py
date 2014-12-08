@@ -28,6 +28,7 @@ from analytics.forms import AnalysisForm
 from django.views.decorators.gzip import gzip_page
 
 import json
+import socket
 
 _PERMISSION_MSG_DELETE = _("You are not permitted to delete this analysis.")
 _PERMISSION_MSG_GENERIC = _('You do not have permissions for this analysis.')
@@ -266,19 +267,45 @@ def analysis_metadata(request, analysisid, template='analytics/analysis_metadata
 
 @never_cache
 @csrf_exempt
-def solap4py_api(request):
+def mandoline_api(request):
     """
-    View to communicate with solap4py.
+    View to communicate with mandoline.
     """
     if request.method == 'POST':
-        from analytics.solap4py import solap4py
-        import time
-        start = time.time()
-        data = solap4py.process(request.body)
-        print time.time() - start
-        return HttpResponse(data, mimetype='application/json', status=200)
-    return HttpResponse(
-        _NOT_A_VALID_JSON_DOC,
-        mimetype="text/plain",
-        status=200
-    )
+        try:
+            request_json = json.loads(request.body)
+
+            request_json['role'] = settings.ANONYMOUS_GEOMONDRIAN_ROLE
+            if request.user.is_authenticated():
+                queryset = request.user.geomondrianrole.get_queryset()
+                if len(queryset) > 0:
+                    request_json['role'] = queryset[0].rolename
+
+            data = _query_mandoline(json.dumps(request_json))
+            return HttpResponse(data, mimetype='application/json', status=200)
+
+        except ValueError:
+            return HttpResponse(
+                _NOT_A_VALID_JSON_DOC,
+                mimetype="text/plain",
+                status=400
+            )
+        except socket.error:
+            return HttpResponse(status=503) # Mandoline api unreachable
+    else:
+        return HttpResponse(status=405) # Method not available for this view
+
+def _query_mandoline(querystr):
+    """ Send the query to mandoline through a socket and return the result """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((settings.MANDOLINE_HOST, settings.MANDOLINE_PORT))
+
+    s.send(querystr + '\r\n')
+    data = bytearray()
+    while 1:
+        chunk = s.recv(65536)
+        if not chunk:
+            break
+        data.extend(chunk)
+
+    return data.decode(encoding='utf-8')

@@ -18,7 +18,7 @@
 #
 #########################################################################
 
-from analytics.models import Analysis, ChartTip
+from analytics.models import Analysis, ChartTip, GeoMondrianRole
 from django.contrib import admin
 
 class AnalysisAdmin(admin.ModelAdmin):
@@ -27,5 +27,9 @@ class AnalysisAdmin(admin.ModelAdmin):
 class ChartTipAdmin(admin.ModelAdmin):
     list_display = ('chart_type', 'message')
 
+class GeoMondrianRoleAdmin(admin.ModelAdmin):
+    list_display = ('rolename',)
+
 admin.site.register(Analysis, AnalysisAdmin)
 admin.site.register(ChartTip, ChartTipAdmin)
+admin.site.register(GeoMondrianRole, GeoMondrianRoleAdmin)

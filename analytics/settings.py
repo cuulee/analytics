@@ -112,3 +112,8 @@ CSTS = {
       'charts' : {}
     }
   }
+
+ANONYMOUS_GEOMONDRIAN_ROLE= 'anonymous'
+
+MANDOLINE_HOST = 'localhost'
+MANDOLINE_PORT = 25335

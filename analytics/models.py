@@ -5,6 +5,7 @@ from django.contrib.contenttypes.models import ContentType
 
 from geonode.api.resourcebase_api import CommonModelApi, CommonMetaApi
 from geonode.base.models import ResourceBase, resourcebase_post_save
+from geonode.people.models import Profile
 
 from agon_ratings.models import OverallRating
 
@@ -31,6 +32,11 @@ class ChartTip(models.Model):
     )
     chart_type = models.CharField(max_length=10, choices=CHART_TYPES, unique=True)
     message = models.TextField()
+
+class GeoMondrianRole(models.Model):
+    """ Class used to connect users to GeoMondrian roles """
+    rolename = models.CharField(max_length=100, unique=True)
+    users = models.ManyToManyField(Profile, related_name="geomondrianrole")
 
 class AnalysisResource(CommonModelApi):
     """ Class to be used in the search API of GeoNode """

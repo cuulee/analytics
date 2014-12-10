@@ -1959,13 +1959,13 @@ dc.colorMixin = function (_chart) {
         tdColor.exit().remove();
         tdColor
             .html("&nbsp;")
-            .attr("style",function(d){
+            .attr("style",function(d) {
                 var begin = !isNaN(_colors.invertExtent(d)[0]) ? _colors.invertExtent(d)[0] : min;
                 var end   = !isNaN(_colors.invertExtent(d)[1]) ? _colors.invertExtent(d)[1] : max;
                 var currentExtent = end - begin;
                 return "width: "+100*(currentExtent/extent)+"%; background-color: "+d;
             })
-            .attr("title",function(d, i){
+            .attr("title",function(d, i) {
                 var begin = !isNaN(_colors.invertExtent(d)[0]) ? _colors.invertExtent(d)[0] : min;
                 var end   = !isNaN(_colors.invertExtent(d)[1]) ? _colors.invertExtent(d)[1] : max;
                 return _formatLegendNumber(begin)+"-"+_formatLegendNumber(end);
@@ -3801,12 +3801,13 @@ dc.wheelMixin = function(_chart) {
             alt   : d3.event.altKey,
             shift : d3.event.shiftKey
         }
+
+        // on zoomIn-out
         if (!disabledActions.mousewheel && zoomIn && (d3.event.deltaY < 0 || d3.event.wheelDeltaY > 0 || d3.event.deltaX < 0 || d3.event.wheelDeltaX > 0) && _chart._callbackZoomIn !== undefined) {
             delayAction('mousewheel', 1500);
             _chart._zoomIn(d, keys);
         }
 
-        // on zoomIn-out
         else if (!disabledActions.mousewheel && zoomOut && (d3.event.deltaY > 0 || d3.event.wheelDeltaY < 0 || d3.event.deltaX > 0 || d3.event.wheelDeltaX < 0) && _chart._callbackZoomOut !== undefined) {
             delayAction('mousewheel', 1500);
             _chart._zoomOut();
@@ -5369,7 +5370,7 @@ dc.dataTable = function (parent, chartGroup) {
 
     function nestEntries() {
         var entries = _chart.dimension().top(_size);
-
+        
         return d3.nest()
             .key(_chart.group())
             .sortKeys(_order)
@@ -6944,7 +6945,7 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
 
     _chart._zoomOut = function (nbLevels) {
         _chart._onZoomOut();
-        _chart.callbackZoomOut()(nbLevels, _chart.chartID());
+        _chart.callbackZoomOut()(_chart.chartID(), nbLevels);
     };
 
     /*
@@ -7020,6 +7021,7 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
             .transition()
             .duration(transition)
             .style("stroke-width", 1.5 / scale + "px")
+            .style("stroke", "white")
             .attr("transform", "translate(" + translate + ") scale(" + scale + ") ");
     }
 

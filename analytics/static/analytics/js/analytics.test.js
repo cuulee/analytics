@@ -65,6 +65,8 @@ var analytics = {
       zoom             : 'zoom'
     },
     palettes : ["YlGn", "GnBu", "BuPu", "RdPu", "PuRd", "OrRd", "YlOrRd", "YlOrBr", "PuOr", "BrBG", "PRGn", "PiYG", "RdBu", "RdGy", "RdYlBu", "RdYlGn"],
+    scaleType : 'quantile',
+    nbBins : 6,
     txts : {
       charts : {
         map : 'Choropleth map',
@@ -80,7 +82,9 @@ var analytics = {
         measures : 'Measures available:'
       },
       hiddenChart : 'This chart is hidden because the dimension shown is aggregated',
-      changeCube : 'You are changing the cube beeing studied. If you continue, your current analysis of this cube will be lost. Do you want to continue?'
+      changeCube : 'You are changing the cube beeing studied. If you continue, your current analysis of this cube will be lost. Do you want to continue?',
+      jenksWarnTitle : 'Jenk\'s natural breaks replaced by quantiles',
+      jenksWarnText: 'Jenk\'s natural breaks can\'t be used on this dimension because it needs the dimension to have more members than bins on the scale.'
     },
     tips : {
       charts : {}
@@ -110,13 +114,19 @@ analytics.init = function (queryAPI, state) {
 };
 
 analytics.setCsts = function (csts) {
-  function setCstsRec (cstsObject, toAdd) {
+  function setCstsRec(cstsObject, toAdd, force) {
     for (var cstKey in toAdd) {
       var typeOld = Array.isArray(cstsObject[cstKey]) ? 'array' : typeof cstsObject[cstKey];
       var typeNew = Array.isArray(toAdd[cstKey]) ? 'array' : typeof toAdd[cstKey];
 
-      if (typeOld == 'object' && typeNew == 'object') {
-        setCstsRec(cstsObject[cstKey], toAdd[cstKey]);
+      if (cstKey == 'tips')
+        force = true;
+
+      if (force && typeOld == 'undefined' && typeNew != 'undefined') {
+        cstsObject[cstKey] = toAdd[cstKey];
+      }
+      else if (typeOld == 'object' && typeNew == 'object') {
+        setCstsRec(cstsObject[cstKey], toAdd[cstKey], force);
       }
       else if (typeof typeOld != 'undefined' && typeof typeOld != 'object' && typeNew != 'undefined' && typeNew != 'object') {
         cstsObject[cstKey] = toAdd[cstKey];
@@ -124,7 +134,7 @@ analytics.setCsts = function (csts) {
     }
   }
 
-  setCstsRec (analytics.csts, csts);
+  setCstsRec(analytics.csts, csts, false);
 };
 
 analytics.reset = function() {
@@ -2352,6 +2362,76 @@ analytics.data = (function() {
     }
   };
 
+  /**
+  ### *float[]* data.**getValues2D**(*data.dimension* dimensionX, *data.dimension* dimensionY, [*data.measure* measure])
+
+  Return the list of values, one per combination of each member of `dimensionX` with the members of `dimensionY`. This is used to compute a domain
+  when you will filter across one of those dimensions.
+  **/
+  _data.getValues2D = function (dimensionX, dimensionY, measure) {
+    return isClientSideAggrPossible() ? getValues2DClient(dimensionX, dimensionY, measure) : getValues2DServer(dimensionX, dimensionY, measure);
+  };
+
+  function getValues2DClient (dimensionX, dimensionY, measure) {
+    measure = measure || analytics.state.measure();
+
+    // remove filters on dimensions X & Y
+    dimensionX.crossfilterDimension().filterAll();
+    dimensionY.crossfilterDimension().filterAll();
+
+    // compute output
+    var dimension = _dataCrossfilter
+      .dimension(function(d) { return d[dimensionX.id()] + '///' + d[dimensionY.id()]; });
+
+    var out = dimension
+      .group()
+      .reduceSum(function(d) { return d[measure.id()]; })
+      .all()
+      .map(function (d) { return d.value; });
+
+    // add filters on dimensions X & Y
+    dimensionX.filterAccordingToState();
+    dimensionY.filterAccordingToState();
+
+    dimension.dispose();
+    return out;
+  }
+
+  function getValues2DServer (dimensionX, dimensionY, measure) {
+    measure = measure || analytics.state.measure();
+
+    // clear query
+    analytics.query.clear();
+
+    // set cube
+    analytics.query.drill(analytics.state.cube().id());
+
+    // set dimensions to get
+    var dimensions = analytics.state.dimensions();
+
+    for (var index in dimensions) {
+      var dimension = dimensions[index];
+
+      if (!dimension.aggregated()) {
+
+        // members to filters = slice || filters if set and on a dimension != X & Y
+        var members = Object.keys(dimension.getLastSlice());
+        if (!dimension.equals(dimensionX) && !dimension.equals(dimensionY) && dimension.getLastFilters().length)
+          members = dimension.getLastFilters();
+
+        analytics.query.slice(dimension.hierarchy(), members);
+      }
+    }
+    analytics.query.dice([dimensionX.hierarchy(), dimensionY.hierarchy()]);
+
+    // set measure
+    analytics.query.push(measure.id());
+
+    // get data
+    var data = analytics.query.execute();
+    return data.map(function (d) { return d[measure.id()]; });
+  }
+
 _data._data = function() { return _data; };
 _data._measuresLoaded = function() { return _measuresLoaded; };
 _data._dataCrossfilter = function() { return _dataCrossfilter; };
@@ -2360,6 +2440,8 @@ _data.isClientSideAggrPossible = isClientSideAggrPossible;
 _data.setCrossfilterData = setCrossfilterData;
 _data.getDataClientAggregates = getDataClientAggregates;
 _data.getDataServerAggregates = getDataServerAggregates;
+_data.getValues2DClient = getValues2DClient;
+_data.getValues2DServer = getValues2DServer;
 
 _data.reset = function () {
   _data = {};
@@ -2528,9 +2610,9 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
 
   var _stack = []; // stack of all slice done on this hierarchy
 
-  var _scaleType    = 'quantile';
+  var _scaleType    = analytics.csts.scaleType;
   var _colorPalette = analytics.csts.palettes[analytics.data.dimension.nextI++ % analytics.csts.palettes.length];
-  var _nbBins       = 4;
+  var _nbBins       = analytics.csts.nbBins;
 
   _dimension._crossfilterDimension = null; // crossfilter element for this dimension
   _dimension._crossfilterGroups = {}; // crossfilter element for the group of this dimension
@@ -2582,17 +2664,6 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
     return _properties;
   };
 
-  _dimension.currentLevel = function() {
-    if (!_aggregated)
-      return _stack.length - 1;
-    else
-      return 0;
-  };
-
-  _dimension.maxLevel = function() {
-    return _levels.length - 1;
-  };
-
   _dimension.getGeoProperty = function () {
     for (var i in _properties) {
       if (_properties[i].type() == "Geometry")
@@ -2627,6 +2698,9 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
     return _dimension;
   };
 
+  _dimension.equals = function (other) {
+    return (typeof other.id == "function") && (_id === other.id());
+  };
 
   /**
   ### Drill-down / roll-up
@@ -2670,18 +2744,11 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   * *boolean* data.dimension.**isDrillPossible**()
   * *boolean* data.dimension.**isRollPossible**()
   * *int* data.dimension.**nbRollPossible**() : number of roll we can do
+  * *mixed* data.dimension.**isPartialDrillDown**(*boolean* isPartialDrillDown) : do we did a partial drill-down on this dimension
   **/
 
   _dimension.membersStack = function () {
     return _stack.map(function (level) { return level.members; });
-  };
-
-  _dimension.filtersStack = function () {
-    return _stack.map(function (level) { return level.filters; });
-  };
-
-  _dimension.equals = function (other) {
-    return (typeof other.id == "function") && (_id === other.id());
   };
 
   _dimension.addSlice = function (members) {
@@ -2698,16 +2765,19 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
     return _dimension.getSlice(_stack.length - 1);
   };
 
-  _dimension.getLastFilters = function () {
-    return _dimension.getFilters(_stack.length - 1);
-  };
-
   _dimension.getSlice = function (level) {
     return _stack[level].members;
   };
 
-  _dimension.getFilters = function (level) {
-    return _stack[level].filters;
+  _dimension.currentLevel = function() {
+    if (!_aggregated)
+      return _stack.length - 1;
+    else
+      return 0;
+  };
+
+  _dimension.maxLevel = function() {
+    return _levels.length - 1;
   };
 
   _dimension.isDrillPossible = function () {
@@ -2736,11 +2806,27 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
 
   Filters on the dimensions are handled by the following functions:
 
-  * *mixed* data.dimension.**filters**([*string[]* filters]) : get of set filtered members (identified by their ids)
+  * *string[][]* data.dimension.**filtersStack**()
+  * *string[]* data.dimension.**getLastFilters**()
+  * *string[]* data.dimension.**getFilters**(*int* level)
+  * *mixed* data.dimension.**filters**([*string[]* filters]) : get or set last filters
   * *this* data.dimension.**filter**(*string* element, *boolean* add) : add (`add = true`) or remove (`add = false`) an element from the filters
   * *this* data.dimension.**addFilter**(*string* element)
   * *this* data.dimension.**removeFilter**(*string* element)
   **/
+
+  _dimension.filtersStack = function () {
+    return _stack.map(function (level) { return level.filters; });
+  };
+
+  _dimension.getLastFilters = function () {
+    return _dimension.getFilters(_stack.length - 1);
+  };
+
+  _dimension.getFilters = function (level) {
+    return _stack[level].filters;
+  };
+
   _dimension.filters = function (filters) {
     if (!arguments.length) return _dimension.getLastFilters();
     _stack[_stack.length - 1].filters = filters;
@@ -2777,6 +2863,13 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
       palette to use for this dimension.
   * *nbBins* data.dimension.**nbbins**(*int* nb) : get or set the number of bins of the color scale.
   * *d3.scale* data.dimension.**scale**() : get the d3 scale of the dimension
+  * *float[]* data.dimension.**values**([*data.measure[]* measuresToLoad, *data.measure* measureToUse]) : get the values of the dimension for a given measure
+      useful to compute colors (quantiles for example).
+  * *[float, float]* data.dimension.**domain**([*data.measure[]* measuresToLoad, *data.measure* measureToUse]) : get the extent of the values of the dimension
+  * *[float, float]* data.dimension.**domainWithPadding**(*float* paddingPercent, [*data.measure[]* measuresToLoad, *data.measure* measureToUse]) : get the extent
+      of the values of the dimension with a padding added
+  * *this* data.dimension.**freezeDomainAccross**(*data.dimension* otherDimension) : freeze the scale for a filtering across a given dimension
+  * *this* data.dimension.**unfreezeDomain**() : unfreeze the scale
   **/
   _dimension.colors = function () {
     return colorbrewer[_colorPalette][_nbBins];
@@ -2803,31 +2896,74 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   _dimension.scale = function () {
 
     // Jenks natural breaks will fail if we have equal or less data than classes
-    if (_scaleType == 'natural' && _dimension.crossfilterGroup().all().length <= _nbBins)
-      _scaleType = 'quantize';
+    if (_scaleType == 'natural' && _dimension.crossfilterGroup().all().length <= _nbBins) {
+      _scaleType = 'quantile';
+      new PNotify({
+        title: analytics.csts.txts.jenksWarnTitle,
+        text: analytics.csts.txts.jenksWarnText
+      });
+    }
 
     switch (_scaleType) {
 
       case 'natural':
       return d3.scale.threshold()
-        .domain(ss.jenks(_dimension.crossfilterGroup().all().map(function(d) { return d.value; }), _nbBins).splice(1, _nbBins - 1))
+        .domain(ss.jenks(_dimension.values(), _nbBins).splice(1, _nbBins - 1))
         .range(_dimension.colors());
 
       case 'quantize':
-
-      var min = _dimension.crossfilterGroup().order(function (d) { return -d; }).top(1)[0].value;
-      var max = _dimension.crossfilterGroup().order(function (d) { return  d; }).top(1)[0].value;
-
       return d3.scale.quantize()
-        .domain([min, max])
+        .domain(_dimension.domain())
         .range(_dimension.colors());
 
       case 'quantile':
-
       return d3.scale.quantile()
-        .domain(_dimension.crossfilterGroup().all().map(function(d) { return d.value; }))
+        .domain(_dimension.values())
         .range(_dimension.colors());
     }
+  };
+
+  var _values = {};
+  _dimension.values = function (measuresToLoad, measureToUse) {
+    // unfrozen: values 1D
+    if (_frozenAcross === null) {
+      return _dimension
+        .crossfilterGroup(measuresToLoad)
+        .all()
+        .map(function(d) { return measuresToLoad ? d.value[measureToUse] : d.value; });
+    }
+    // frozen: values 2D
+    else {
+      measureToUse = measureToUse || analytics.state.measure();
+      if (_values[measureToUse.id()] === undefined) {
+        _values[measureToUse.id()] = analytics.data.getValues2D(_dimension, _frozenAcross, measureToUse);
+      }
+      return _values[measureToUse.id()];
+    }
+  };
+
+  _dimension.domain = function (measuresToLoad, measureToUse) {
+    return d3.extent(_dimension.values(measuresToLoad, measureToUse));
+  };
+
+  _dimension.domainWithPadding = function (paddingPercent, measuresToLoad, measureToUse) {
+    var domain = _dimension.domain(measuresToLoad, measureToUse);
+    var extent = domain[1] - domain[0];
+    domain[0] = domain[0] - paddingPercent * extent;
+    domain[1] = domain[1] + paddingPercent * extent;
+    return domain;
+  };
+
+  var _frozenAcross = null;
+  _dimension.freezeDomainAccross = function (otherDimension) {
+    _frozenAcross = otherDimension;
+    return _dimension;
+  };
+
+  _dimension.unfreezeDomain = function () {
+    _frozenAcross = null;
+    _values = {};
+    return _dimension;
   };
 
   /**
@@ -2838,6 +2974,8 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   * *crossfilter.dimension* data.dimension.**crossfilterDimension**()
   * *crossfilter.group* data.dimension.**crossfilterGroup**([*data.measure[]* extraMeasures]) :
     get a crossfilter group, optionally with extra measures (see data.getCrossfilterGroup for more details)
+  * *this* data.dimension.**filterAccordingToState**() : filter the crossfilter dimension according to filters
+    stored in the dimension
   * *float* data.dimension.**getTotal**() : returns the total for the selected members of the dimension
   **/
   _dimension.crossfilterDimension = function () {
@@ -2846,6 +2984,20 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
 
   _dimension.crossfilterGroup = function (extraMeasures) {
     return analytics.data.getCrossfilterGroup(_dimension, extraMeasures);
+  };
+
+  _dimension.filterAccordingToState = function () {
+    var filters = _dimension.getLastFilters();
+    if (filters !== undefined && filters.length) {
+      _dimension.crossfilterDimension().filterFunction(function (d) {
+        for(var i = 0; i < filters.length; i++) {
+          if (filters[i] == d)
+            return true;
+        }
+        return false;
+      });
+    }
+    return _dimension;
   };
 
   _dimension.getTotal = function () {
@@ -2939,7 +3091,10 @@ analytics.state = (function() {
       state.measure(measure);
 
       _dimensions = [];
+      analytics.data.dimension.nextI = 0;
+      dc.filterAll();
       state.initDimensions();
+      dc.filterAll();
       analytics.data.load();
       analytics.display.render();
     }
@@ -3102,7 +3257,7 @@ analytics.state = (function() {
   };
 
   /**
-  ### state.**rollUp**(*data.dimension* dimension, [*int* nbLevels=1])
+  #### state.**rollUp**(*data.dimension* dimension, [*int* nbLevels=1])
 
   Roll up on the given dimension, optionally `nbLevels` times, and reload data.
   **/
@@ -3124,6 +3279,29 @@ analytics.state = (function() {
     }
   };
 
+  /**
+  ### Freeze domains
+
+  These two functions allow you to freeze the domain of the dimensions, for a filtering across a given dimension. **Use case:** play the timeline.
+
+  * state.**freezeDomainsAcross**(*data.dimension* dimension)
+  * state.**unfreezeDomains**()
+  ***/
+
+  state.freezeDomainsAcross = function (dimension) {
+    _dimensions.forEach(function (d) {
+      if (!d.equals(dimension)) {
+        d.freezeDomainAccross(dimension);
+      }
+    });
+  };
+
+  state.unfreezeDomains = function() {
+    _dimensions.forEach(function (d) {
+      d.unfreezeDomain();
+    });
+  };
+
   function getState() {
     // init output
     var out = {
@@ -3140,7 +3318,10 @@ analytics.state = (function() {
         hierarchy    : dimension.hierarchy(),
         filters      : dimension.filters(),
         properties   : dimension.properties().map(function (property) { return property.id(); }),
-        membersStack : dimension.membersStack().map(function (members) { return Object.keys(members); })
+        membersStack : dimension.membersStack().map(function (members) { return Object.keys(members); }),
+        scaleType    : dimension.scaleType(),
+        colorPalette : dimension.colorPalette(),
+        nbBins       : dimension.nbBins()
       };
     });
 
@@ -3206,6 +3387,9 @@ analytics.state = (function() {
           dimensionObj.addSlice(analytics.query.getMembersInfos(savedState.schema, savedState.cube, dimension.id, dimension.hierarchy, levelId, members, dimension.properties.length > 0));
         });
         dimensionObj.filters(dimension.filters);
+        dimensionObj.scaleType(dimension.scaleType);
+        dimensionObj.colorPalette(dimension.colorPalette);
+        dimensionObj.nbBins(dimension.nbBins);
 
         _dimensions.push(dimensionObj);
         dimensionsMap[dimensionObj.id()] = dimensionObj;
@@ -3507,8 +3691,8 @@ analytics.display = (function() {
       update the interface accordingly.
   * display.**_displayDimensionParamsForm**(*data.dimension* dimension) : show the form allowing to change the configuration of the given dimension
   * display.**updateDimension(*data.dimension* dimension, *Object* options) : modify the given dimension with the given options
-  * display.**freezeColorScales**()
-  * display.**unfreezeColorScales**()
+  * display.**freezeScalesAcross**(*data.dimension* dimension) : freeze charts across a dimension
+  * display.**unfreezeScales**() : cancel **freezeScalesAcross**
   **/
   display._displayParamsForm = function (chart, create) {
 
@@ -3621,7 +3805,7 @@ analytics.display = (function() {
       // disable impossibles dimensions & measures
       dimensionsSelects.children('option').removeAttr('disabled');
       for (dimension in dimensionsMap) {
-        if (!analytics.charts[chartType].isPossibleDimension(dimensionsMap[dimension]))
+        if (!analytics.charts[chartType].isPossibleDimension(dimensionsMap[dimension]) || dimensionsMap[dimension].aggregated())
           dimensionsSelects.children('option[value="'+dimensionsMap[dimension].id()+'"]').attr('disabled', 'disabled');
       }
       measuresSelects.children('option').removeAttr('disabled');
@@ -3761,16 +3945,6 @@ analytics.display = (function() {
     }
   }
 
-  var _frozenColorScales = false;
-
-  display.freezeColorScales = function () {
-    _frozenColorScales = true;
-  };
-
-  display.unfreezeColorScales = function () {
-    _frozenColorScales = false;
-  };
-
   display.aggregateDimension = function (dimension, aggregate) {
     dimension.aggregated(aggregate);
     display.getChartsUsingDimension(dimension).forEach(function (chart) {
@@ -3844,6 +4018,22 @@ analytics.display = (function() {
     display.redraw();
   }
 
+  display.freezeScalesAcross = function (dimension) {
+    analytics.state.freezeDomainsAcross(dimension);
+    display.charts().forEach(function (chart) {
+      chart.elasticAxes(false);
+    });
+    display.render();
+  };
+
+  display.unfreezeScales = function () {
+    analytics.state.unfreezeDomains();
+    display.charts().forEach(function (chart) {
+      chart.elasticAxes(true);
+    });
+    display.render();
+  };
+
   /**
   ### Charts' filters
 
@@ -3908,9 +4098,7 @@ analytics.display = (function() {
     }
 
     display.charts().forEach(function (chart) { chart.updateTitle(); });
-    if (!_frozenColorScales) {
-      display.charts().forEach(function (chart) { chart.updateColors(); });
-    }
+    display.charts().forEach(function (chart) { chart.updateColors(); });
   };
 
   /**
@@ -4031,6 +4219,7 @@ analytics.display = (function() {
       charts[i].build();
     }
     filterChartsAsDimensionsState();
+    $('.tooltip').remove();
   }
 
   display.render = function () {
@@ -4067,6 +4256,7 @@ analytics.display = (function() {
       else if (keys.shift) {
         toZoom = Object.keys(dimension.getLastSlice());
         type = 'partial';
+        new PNotify('After a partial drill-down, you can only roll-up');
       }
       else {
         toZoom = [member];
@@ -4133,7 +4323,6 @@ display._nextChartId = function () { return _nextChartId; };
 display._charts = function () { return _charts; };
 display._resizableColumns = function () { return _resizableColumns; };
 display._savedColumnWidths = function () { return _savedColumnWidths; };
-display._frozenColorScales = function () { return _frozenColorScales; };
 display.getColumn = getColumn;
 display.getChartPosition = getChartPosition;
 display.insertChart = insertChart;
@@ -4156,7 +4345,6 @@ display.reset = function () {
   _nextChartId = 0;
   _resizableColumns = undefined;
   _savedColumnWidths = undefined;
-  _frozenColorScales = false;
 };
 
 
@@ -4643,6 +4831,8 @@ analytics.charts.chart = (function () {
     * *integer* charts.chart.**width**()
     * *integer* charts.chart.**height**()
     * *object* charts.chart.**element**() : returns the dc.js chart associated with the chart
+    * *mixed* charts.chart.**disabled**([*data.boolean* disabled]) : disable the chart (hide the chart)
+    * *mixed* charts.chart.**elasticAxes**([*data.boolean* elasticAxes]) : set elasticity of axes
     * *object* charts.chart.**options**() : return the options of the chart
     * *this* charts.chart.**setOption**(*string* key, *mixed* value)
     * *object* charts.chart.**player**() : return the current player object of the chart
@@ -4781,6 +4971,14 @@ analytics.charts.chart = (function () {
       return _chart;
     };
 
+    var _elasticAxes = true;
+
+    _chart.elasticAxes = function(elasticAxes) {
+      if (!arguments.length) return _elasticAxes;
+      _elasticAxes = elasticAxes;
+      return _chart;
+    };
+
     // display main functions
     _chart.build = function () {
       if (!_chart.element()) {
@@ -4867,7 +5065,6 @@ analytics.charts.chart = (function () {
     * charts.chart.**_initChartSpecific**(): used to initialize the chart
     * charts.chart.**_updateHeaderSpecific**() : called when the chart is created or updated
     * charts.chart.**_updateChartSpecific**() : called when the chart is created or updated
-
     **/
     _chart._resizeSpecific        = function () {};
     _chart._createDcElement       = function () {};
@@ -4910,7 +5107,7 @@ analytics.charts.chart = (function () {
       if (typeof _chart.element().callbackZoomIn == 'function') {
         _chart.element()
           .callbackZoomIn(function (el, dcChartID, keys) { analytics.display.drillDown(_chart.dimensions()[0], el, dcChartID, keys); })
-          .callbackZoomOut(function (dcChartID) { analytics.display.rollUp(_chart.dimensions()[0], dcChartID); });
+          .callbackZoomOut(function (dcChartID, nbLevels) { analytics.display.rollUp(_chart.dimensions()[0], dcChartID, nbLevels); });
       }
 
       // color chart
@@ -4981,7 +5178,7 @@ analytics.charts.chart = (function () {
 
     function displayTip () {
       if (_chart.params().displayTip) {
-        var tip = analytics.display.getTip('chartType', _chart.type());
+        var tip = analytics.display.getTip('charts', _chart.type());
         if (tip) {
           var el = $('<span data-toggle="tooltip" class="chart-infos" data-placement="bottom" title="'+tip+'">'+
             '<i class="fa fa-nomargin fa-info-circle"></i></span>');
@@ -5002,11 +5199,13 @@ analytics.charts.chart = (function () {
           el.children().toggleClass('fa-pause');
 
           if (_player === undefined) {
+            analytics.display.freezeScalesAcross(_dimensions[0]);
             _player = analytics.charts.player(_chart);
             _player.callback(function () {
               el.children().toggleClass('fa-play');
               el.children().toggleClass('fa-pause');
 
+              analytics.display.unfreezeScales();
               _player = undefined;
             });
             _chart.element().filterAll();
@@ -5207,7 +5406,7 @@ analytics.charts.chart = (function () {
   charts_chart_nostatic.options = {
     sort            : null,
     labels          : null,
-    playerTimeout   : 300,
+    playerTimeout   : 1000,
     height          : 300,
     heightReference : "px"
   };
@@ -5500,26 +5699,30 @@ analytics.charts.bar = (function () {
 
     _chart._initChartSpecific = function () {
       _chart.element()
-        .margins({top: 10, right: 10, bottom: 125, left: 40})
+        .margins({top: 10, right: 10, bottom: 110, left: 40})
         .renderlet(function (chart) {
                     chart.selectAll("g.x text")
-                      .attr('dx', '-50')
-                      .attr('transform', "translate(-20,0)")
+                      .attr('dx', '-6')
+                      .attr('dy', '0')
+                      .style('text-anchor', 'end')
                       .attr('transform', "rotate(-50)");
                 })
         .transitionDuration(500)
         .centerBar(false)
         .gap(1)
-        .elasticY(true)
+
         .elasticX(true);
     };
 
     _chart._updateChartSpecific = function () {
-      var metadata = _chart.dimensions()[0].getLastSlice();
+      var dimension = _chart.dimensions()[0];
+      var metadata = dimension.getLastSlice();
 
       var format = d3.format(".3s");
       _chart.element()
         .x(d3.scale.ordinal().domain(d3.keys(metadata)))
+
+
         .xUnits(dc.units.ordinal)
         .title(function (d) {
           var key = d.key ? d.key : d.data.key;
@@ -5528,6 +5731,14 @@ analytics.charts.bar = (function () {
         });
       _chart.element().xAxis().tickFormat(function(d) {return metadata[d].caption;});
       _chart.element().yAxis().tickFormat(function(d) { return format(d);});
+
+      if (_chart.elasticAxes()) {
+        _chart.element().elasticY(true);
+      }
+      else {
+        _chart.element().elasticY(false)
+          .y(d3.scale.linear().domain([0, dimension.domain()[1]]).range([_chart.element().yAxisHeight(), 0]));
+      }
     };
 
     return _chart;
@@ -5560,8 +5771,15 @@ analytics.charts.timeline = (function () {
       return "timeline";
     };
 
+    var superInitChartSpecific = _chart._initChartSpecific;
+    _chart._initChartSpecific = function () {
+      superInitChartSpecific();
+      _chart.element().margins({top: 10, right: 10, bottom: 58, left: 40});
+    };
+
     return _chart;
   };
+
 
   timelineChart.options = {
     sort            : null,
@@ -5605,14 +5823,13 @@ analytics.charts.table = (function () {
     };
 
     _chart._initChartSpecific = function () {
-      var dimension = _chart.dimensions()[0];
-      var members = dimension.getLastSlice();
       var format = d3.format(".3s");
 
       _chart.element()
         .size(Infinity)
         .columns([
           function(d){
+            var members = _chart.dimensions()[0].getLastSlice();
             var key = d.key ? d.key : d.data.key;
             if (members[key] === undefined) {
               return key;
@@ -5793,10 +6010,6 @@ analytics.charts.bubble = (function () {
 
         .margins({top: 0, right: 0, bottom: 30, left: 45})
 
-        .elasticY(true)
-        .elasticX(true)
-        .elasticRadius(true)
-
         .renderHorizontalGridLines(true)
         .renderVerticalGridLines(true)
 
@@ -5820,15 +6033,12 @@ analytics.charts.bubble = (function () {
         .valueAccessor(function (p)       { return p.value[measures[1].id()]; })
         .radiusValueAccessor(function (p) { return p.value[measures[2].id()]; })
 
-        .x(d3.scale.linear().domain(_chart._niceDomain(cfGroup, measures[0].id())))
-        .y(d3.scale.linear().domain(_chart._niceDomain(cfGroup, measures[1].id())))
-        .r(d3.scale.linear().domain(_chart._niceDomain(cfGroup, measures[2].id())))
+        .x(d3.scale.linear().domain(dimension.domainWithPadding(extraMeasures, measures[0], 0.20))).xAxisPadding('20%')
+        .y(d3.scale.linear().domain(dimension.domainWithPadding(extraMeasures, measures[1], 0.15))).yAxisPadding('15%')
+        .r(d3.scale.linear().domain(dimension.domain           (extraMeasures, measures[2]      )))
 
         .xAxisLabel(measures[0].caption())
         .yAxisLabel(measures[1].caption())
-
-        .xAxisPadding(_chart._niceDomain(cfGroup, measures[0].id())[0]*0.1)
-        .yAxisPadding(_chart._niceDomain(cfGroup, measures[1].id())[0]*0.1)
 
         .minRadiusWithLabel(14)
 
@@ -5836,13 +6046,20 @@ analytics.charts.bubble = (function () {
           var key = d.key ? d.key : d.data.key;
           if (metadata[key] === undefined) return (d.value ? format(d.value) : '');
           var out = dimension.caption() + ': ' + (metadata[key] ? metadata[key].caption : '') + "\n" +
-                    measures[0].caption() + ": " + (d.value[measures[0].id()] ? format(d.value[measures[0].id()]) : 0) + "\n";
+                    measures[0].caption() + ': ' + (d.value[measures[0].id()] ? format(d.value[measures[0].id()]) : 0) + '\n';
           if (!measures[1].equals(measures[0]))
-            out +=  measures[1].caption() + ": " + (d.value[measures[1].id()] ? format(d.value[measures[1].id()]) : 0) + "\n";
+            out +=  measures[1].caption() + ': ' + (d.value[measures[1].id()] ? format(d.value[measures[1].id()]) : 0) + '\n';
           if (!measures[2].equals(measures[0]) && !measures[2].equals(measures[1]))
-            out +=  measures[2].caption() + ": " + (d.value[measures[2].id()] ? format(d.value[measures[2].id()]) : 0) + "\n";
+            out +=  measures[2].caption() + ': ' + (d.value[measures[2].id()] ? format(d.value[measures[2].id()]) : 0) + '\n';
           return out;
         });
+
+      if (_chart.elasticAxes()) {
+        _chart.element().elasticX(true).elasticY(true).elasticRadius(true);
+      }
+      else {
+        _chart.element().elasticX(false).elasticY(false).elasticRadius(false);
+      }
     };
 
     return _chart;

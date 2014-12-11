@@ -50,6 +50,7 @@ html, body {
 	overflow-x: hidden;
 	overflow-y: auto;
 	background: #F7FDFF;
+	padding-bottom: 30px;
 }
 
 #middle-pane {

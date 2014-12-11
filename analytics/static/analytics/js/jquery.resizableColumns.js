@@ -108,8 +108,8 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
           var $el;
           $el = $(el);
           return $el.css({
-            left: $el.data('.chart-columns').outerWidth() + ($el.data('.chart-columns').offset().left - _this.$handleContainer.offset().left),
-            height: _this.options.resizeFromBody ? _this.$table.height() : _this.$table.find('#left-pane').height()
+            left: $el.data(_this.options.selector).outerWidth() + ($el.data(_this.options.selector).offset().left - _this.$handleContainer.offset().left),
+            height: _this.options.resizeFromBody ? _this.$table.height() : _this.$table.find(_this.options.selector+':first').height()
           });
         };
       })(this));
@@ -168,7 +168,7 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
       $ownerDocument = $(e.currentTarget.ownerDocument);
       startPosition = pointerX(e);
       $currentGrip = $(e.currentTarget);
-      $leftColumn = $currentGrip.data('.chart-columns');
+      $leftColumn = $currentGrip.data(this.options.selector);
       leftColumnIndex = this.$tableHeaders.index($leftColumn);
       $rightColumn = this.$tableHeaders.eq(leftColumnIndex + 1);
       widths = {
@@ -186,11 +186,21 @@ var __bind = function(fn, me){ return function(){ return fn.apply(me, arguments)
         return function(e) {
           var difference;
           difference = (pointerX(e) - startPosition) / _this.$table.width() * 100;
-          setWidth($leftColumn[0], newWidths.left = _this.constrainWidth(widths.left + difference));
+          newWidths.left = _this.constrainWidth(widths.left + difference)
+          newWidths.right = _this.constrainWidth(widths.right - difference)
+          if (newWidths.left < 3) {
+            newWidths.right = newWidths.right - 3 + newWidths.left;
+            newWidths.left = 3;
+          }
+          else if (newWidths.right < 3) {
+            newWidths.left = newWidths.left - 3 + newWidths.right;
+            newWidths.right = 3;
+          }
+          setWidth($leftColumn[0], newWidths.left);
           if (leftColumnIndex == 0)
-            setWidth($rightColumn[0], newWidths.right = _this.constrainWidth(widths.right - difference), newWidths.left);
+            setWidth($rightColumn[0], newWidths.right, newWidths.left);
           else
-            setWidth($rightColumn[0], newWidths.right = _this.constrainWidth(widths.right - difference));
+            setWidth($rightColumn[0], newWidths.right);
           if (_this.options.syncHandlers != null) {
             _this.syncHandleWidths();
           }

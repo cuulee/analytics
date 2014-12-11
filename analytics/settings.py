@@ -113,6 +113,7 @@ CSTS = {
     }
   }
 
+ROLES_ENABLED = False
 ANONYMOUS_GEOMONDRIAN_ROLE= 'anonymous'
 
 MANDOLINE_HOST = 'localhost'

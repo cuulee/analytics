@@ -274,11 +274,15 @@ def mandoline_api(request):
         try:
             request_json = json.loads(request.body)
 
-            request_json['role'] = settings.ANONYMOUS_GEOMONDRIAN_ROLE
-            if request.user.is_authenticated():
-                queryset = request.user.geomondrianrole.get_queryset()
-                if len(queryset) > 0:
-                    request_json['role'] = queryset[0].rolename
+            if settings.ROLES_ENABLED:
+                request_json['role'] = settings.ANONYMOUS_GEOMONDRIAN_ROLE
+                if request.user.is_authenticated():
+                    queryset = request.user.geomondrianrole.get_queryset()
+                    if len(queryset) > 0:
+                        request_json['role'] = queryset[0].rolename
+            else:
+                if 'role' in request_json:
+                    del request_json['role']
 
             data = _query_mandoline(json.dumps(request_json))
             return HttpResponse(data, mimetype='application/json', status=200)

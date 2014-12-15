@@ -45,7 +45,6 @@ def _resolve_analysis(request, identifier, permission='base.change_resourcebase'
     return resolve_object(request, Analysis, {'pk':identifier}, permission=permission,
                           permission_msg=msg, **kwargs)
 
-@gzip_page
 def new_analysis(request, template='analytics/analysis_view.html'):
     """ Show a new analysis. A copy parameter can be given, this parameter is
     the id of an analysis from which we should copy the state to display on the
@@ -264,6 +263,7 @@ def analysis_metadata(request, analysisid, template='analytics/analysis_metadata
         "category_form": category_form,
     }))
 
+@gzip_page
 @never_cache
 @csrf_exempt
 def mandoline_api(request):

@@ -84,7 +84,8 @@ var analytics = {
       hiddenChart : 'This chart is hidden because the dimension shown is aggregated',
       changeCube : 'You are changing the cube beeing studied. If you continue, your current analysis of this cube will be lost. Do you want to continue?',
       jenksWarnTitle : 'Jenk\'s natural breaks replaced by quantiles',
-      jenksWarnText: 'Jenk\'s natural breaks can\'t be used on this dimension because it needs the dimension to have more members than bins on the scale.'
+      jenksWarnText: 'Jenk\'s natural breaks can\'t be used on this dimension because it needs the dimension to have more members than bins on the scale.',
+      hideUnfilteredWarning : 'Unfiltered elements of this dimension are hidden from charts.'
     },
     tips : {
       charts : {}
@@ -146,353 +147,183 @@ analytics.reset = function() {
 };
 
 
+analytics.utils = (function() {
+
+  var utils = {};
+
+  utils.createMapFromArray = function (array) {
+    var map = {};
+    array.forEach(function (el) {
+      map[el.id()] = el;
+    });
+    return map;
+  };
+
+  utils.indexOf = function (array, el) {
+    for (var i = 0; i < array.length; i++)
+      if (array[i].equals(el))
+        return i;
+    return -1;
+  };
+
+  utils.arraysEquals = function (array1, array2) {
+    if (array1.length != array2.length)
+      return false;
+
+    for (var i in array1)
+      if (!array1[i].equals(array2[i]))
+        return false;
+
+    return true;
+  };
+
+  utils.cloneObject = function (object) {
+    var out = {};
+    for (var key in object)
+      out[key] = object[key];
+    return out;
+  };
+
+  return utils;
+})();
+
+
 /**
 ## analytics.**query** namespace
 
 This namespace helps query the OLAP cube by specifying the API provided to it in order to perform the queries.
-
-### init
-
-Initialize the QueryAPI dependency of Query
-
-### getSchemas
-
-Get schemas list
-
-### getCubes
-
-Get cubes of a schema
-
-### getMesures
-
-Get mesures of a cube and a schema
-
-Measures are members of the only level of the only hierarchy of the dimension with type `Measure`
-
-```js
-"idMeasure" : {
-    "caption" : "theMeasure",
-    "unit" : "theUnit"
-}
-```
-
-### getCubesAndMeasures
-
-Get a list of cubes and for each the measures of this cube
-
-### getDimensions
-
-Get dimensions of a cube in a given schema
-
-This wil return a map of id : dimensionMap as the following example
-
-```js
-"idDimension" : {
-    "caption" : "theCaption",
-    "type" : "theType"
-}
-```
-
-### getGeoDimension
-
-Get the id of the geographic dimension
-
-### getTimeDimension
-
-Get the id of the time dimension
-
-### getXXDimension
-
-Get the id of the XXXX dimension
-
-### getGeoProperty
-
-Return the geographical property of a dimension
-
-### getHierarchies
-
-Get the list of hierarchies of a dimension
-
-### getLevels
-
-Get the list of levels of a hierachy. Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
-
-```js
-[
-  "Countries", //caption of the level at 0 position
-  "Regions"    //caption of the level at 1 position
-]
-```
-
-### getMembers
-
-Get the list of members
-
-If parentMember parameter is not set, returns the map of all members of the specified level with or without the properties values depending on the properties parameter.
-
-If parentMember parameter is set (parentMember being a member of the level idLevel), returns the map of all members descending from this member from the level idlevel + descendingLevel.
-
-Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
-
-```js
-{
- "FR" : // member key
-   {
-     "caption" : "France",
-     "geometry" : {<geoJSONofFrance>}, // property area value
-     "area" : 123.5 // property area value
-   },
- "BE" :
-   {
-     "caption" : "Belgium",
-     "geometry" : {<geoJSONofBelgium>},
-     "area" : 254.1
-   },
-   ...
-}
-```
-
-### getMembersInfos
-
-Get the list of member objects from their IDs
-
-Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
-
-```js
-{
- "FR" : // member key
-   {
-     "caption" : "France",
-     "geometry" : {<geoJSONofFrance>}, // property area value
-     "area" : 123.5 // property area value
-   },
- "BE" :
-   {
-     "caption" : "Belgium",
-     "geometry" : {<geoJSONofBelgium>},
-     "area" : 254.1
-   },
-   ...
-}
-```
-
-### getProperties
-
-Get the list of properties of a level
-
-```js
-{
-  "geom" : {
-    "caption" : "Geom",
-    "type" : "Geometry"
-  },
-  "surf" : {
-    "caption" : "Surface",
-    "type" : "Standard"
-  }
-}
-```
-
-### drill
-
-Select a cube
-
-### push
-
-Add a measure to the list of measures you want to get values of.
-
-### pull
-
-Remove a measure from the list.
-
-### slice
-
-Select a list of members from an hierarchy.
-
-### project
-
-Remove the slice set on an hierarchy.
-
-### filter
-
-Apply a filter rule on the members of an hierarchy.
-
-### rank
-
-Rank the results.
-
-### execute
-
-Execute the query.
-
-### clear
-
-Clear the query.
-
-### checkAPIResponse
-
-Checks the given response from the QueryAPI component
-
-Throws exception is the given response from the QueryAPI is malformed or contains an error code
-
-### isAllowedDimensionType
-
-Determines if the given type is a legal type of dimension
-
-### cacheSchema
-
-Store the given schema in the metadatas cache
-
-### cacheCube
-
-Store the given cube in the metadatas cache into the given schema
-
-### cacheDimension
-
-Store the given dimension in the metadatas cache into the given cube
-
-### cacheHierarchy
-
-Store the given hierarchy in the metadatas cache into the given dimension
-
-### cacheLevel
-
-Store the given level in the metadatas cache into the given hierarchy
-
-### cacheProperty
-
-Store the given property in the metadatas cache into the given level
-
-### isSchemaInCache
-
-Determines if a schema with the given id is in the metadata cache
-
-### isCubeInCache
-
-Determines if a cube with the given id is in the given schema in the metadata cache
-
-### isDimensionInCache
-
-Determines if a dimension with the given id is in the given cube in the metadata cache
-
-### isHierarchyInCache
-
-Determines if a hierarchy with the given id is in the given dimension in the metadata cache
-
-### isLevelInCache
-
-Determines if a level with the given id is in the given hierarchy in the metadata cache
-
-### isPropertyInCache
-
-Determines if a property with the given id is in the given level in the metadata cache
-
-### isCacheEmpty
-
-Determines if the metadatas cache is absolutely empty
-
-### isCubesListEmpty
-
-Determines if the given schema in metadatas cache contains cubes
-
-### isDimensionsListEmpty
-
-Determines if the given cube in metadatas cache contains dimensions
-
-### isHierarchiesListEmpty
-
-Determines if the given dimension in metadatas cache contains hierarchies
-
-### isLevelsListEmpty
-
-Determines if the given hierarchy in metadatas cache contains levels
-
-### isPropertiesListEmpty
-
-Determines if the given level in metadatas cache contains properties
-
-### clearCache
-
-Clear the metadatas cache and the schemas poperty
-
-```js
->>>this.isCacheEmpty();
-false
->>>this.clearCache();
->>>this.isCacheEmpty();
-true
-```
-
-### getSchemasFromCache
-
-Retrieve the list of schemas from the cache as a flat map of strings idSchema : caption
-
-### getCubesFromCache
-
-Retrieve the list of cubes of a schema from the cache as a flat map of strings idCube : caption
-
-### getDimensionsFromCache
-
-Retrieve the list of dimensions of a cube from the cache as a map of strings
-
-```js
-"idDimension" : {
-    "caption" : "theCaption",
-    "type" : "theType"
-}
-```
-
-### getHierarchiesFromCache
-
-Retrieve the list of hierarchies of a dimension from the cache as a map of strings
-
-```js
-{
-"idHierarchyA" : "captionHierarchyA",
-"idHierarchyB" : "captionHierarchyB"
-}
-```
-
-### getLevelsFromCache
-
-Retrieve the list of levels of a hierarchy from the cache as an array of strings Note that the strings are the captions of the levels, not their id
-
-```js
-[
-"captionHierarchyA",
-"captionHierarchyB"
-]
-```
-
-### getPropertiesFromCache
-
-Retrieve the list of properties of a level from the cache
-
-```js
-{
-  "geom" : {
-    "caption" : "Geom",
-    "type" : "Geometry"
-  },
-  "surf" : {
-    "caption" : "Surface",
-    "type" : "Standard"
-  }
-}
-```
-
-### getLevelIDFromIndex
-
-Get the level’s ID from its index
-
-### mapWithCaptionToSimpleMap
-
-Transform a deep map\<id:map\<caption\>\> with a caption attribute into a flat map\<id:caption\>
-
 **/
 analytics.query = (function() {
 
   var _queryAPI = null;
+
+  /**
+  ### Private functions
+
+  The following functions are all private functions.
+  They must not be used outside of the `analytics.qyery.cache` namespace.
+  **/
+
+  /**
+  ### *Object* **mapWithCaptionToSimpleMap**(*Object* map)
+
+  Transform a deep map\<id:map\<caption\>\> with a caption attribute into a flat map\<id:caption\>
+  **/
+  function mapWithCaptionToSimpleMap (map) {
+    var out = {};
+    for (var key in map) {
+      out[key] = map[key].caption;
+    }
+
+    return out;
+  }
+
+  /**
+  ### *boolean* **getLevelIDFromIndex**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel)
+
+  Get the level's ID from its index.
+  It throws an error when no schema, cube, dimension, hierarchy or level
+  are found in the database with the given identifiers.
+  **/
+  function getLevelIDFromIndex (idSchema, idCube, idDimension, idHierarchy, indexLevel) {
+    var levels = Query.getLevels(idSchema, idCube, idDimension, idHierarchy);
+    if (typeof levels[indexLevel] == 'undefined')
+      throw 'The level you tried to use does not exists in the database!';
+
+    return levels[indexLevel];
+  }
+
+  /**
+  ### *string* **getMeasureDimension**(*string* idSchema, *string* idCube)
+
+  Get the id of the measure dimension.
+  It can  throw an error is the schema or the cube is not found in
+  the database.
+  **/
+  function getMeasureDimension (idSchema, idCube) {
+    return getXXDimension(idSchema, idCube, 'Measure');
+  }
+
+  /**
+  ### *string* **getXXDimension**(*string* idSchema, *string* idCube, *string* type)
+
+  Get the id of the dimension with type XX.
+  It can  throw an error is the schema, the cube or no dimension with the
+  given type is not found in the database.
+  **/
+  function getXXDimension (idSchema, idCube, type) {
+    if (!isAllowedDimensionType(type))
+      throw new Query.IllegalDimensionTypeError();
+
+    // Retrieve all dimensions to get it in cache
+    Query.getDimensions(idSchema, idCube);
+    // Get from cache to have all dimensions, with the Measure one
+    var dimensions = Query.cache.getDimensionsFromCache(idSchema, idCube);
+    for (var key in dimensions) {
+      if (dimensions[key].type == type)
+        return key;
+    }
+    throw "There's no dimension of type "+type+" in cube "+idCube+" of schema "+idSchema;
+  }
+
+  /**
+  ### *boolean* **checkAPIResponse**(*Object* response)
+
+  Check the given response from the QueryAPI component.
+
+  Throws exception is the given response from the QueryAPI is malformed
+  or contains an error code.
+  **/
+  function checkAPIResponse (response) {
+    if (response.error === 'BAD_REQUEST')
+      throw new Query.QueryAPIBadRequestError();
+    if (response.error === 'NOT_SUPPORTED')
+      throw new Query.QueryAPINotSupportedError();
+    if (response.error === 'SERVER_ERROR')
+      throw new Query.QueryAPIServerError();
+    if (response.error === undefined || response.data === undefined || response === {})
+      throw new Query.IllegalAPIResponseError();
+
+    return true;
+  }
+
+  /**
+  ### *boolean* **isAllowedDimensionType**(*string* type)
+
+  Determines if the given type is a legal type of dimension
+  **/
+  function isAllowedDimensionType (type) {
+    return ( (type === 'Time') || (type == 'Measure') || (type == 'Standard') || (type == 'Geometry') );
+  }
+
+  /**
+  ### **loadToDimensions**(*string* idSchema, *string* idCube, *string* idDimension)
+
+  Load metadata to the dimensions of the given cube.
+  It throws errors if the schema or the cube are not found in the database.
+  **/
+  function loadToDimensions (idSchema, idCube, idDimension) {
+    if (!Query.cache.isSchemaInCache(idSchema))
+      Query.getSchemas();
+
+    if (!Query.cache.isCubeInCache(idSchema, idCube))
+      Query.getCubes(idSchema);
+
+    if (!Query.cache.isDimensionInCache(idSchema, idCube, idDimension))
+      Query.getDimensions(idSchema, idCube);
+  }
+
+
+  /**
+  ### Public functions
+
+  All the *getXX* functions could throw the following:
+
+  * QueryAPINotProvidedError: the *queryAPI is not provided ;
+  * QueryAPIBadRequestError ;
+  * QueryAPINotSupportedError ;
+  * IllegalAPIResponseError ;
+  **/
 
   var Query = {
 
@@ -507,134 +338,87 @@ analytics.query = (function() {
         return _queryAPI;
     },
 
-    //---------------------
-    //---- METADATA -------
-    //---------------------
-
     /**
-     * List of metadatas already loaded from DB
-     *
-     * @private
-     * @type {Object}
-     */
-    metadatas : {},
+    ### *Object* query.**getSchemas**()
 
-    /**
-     * Transform a deep map<id:map<caption>> with a caption attribute into a flat map<id:caption>
-     *
-     * @private
-     * @param {Object.<string, Object.<string, string>>} map - the deep map
-     * @return {Object.<string, string>} the flat map
-     */
-    mapWithCaptionToSimpleMap : function (map) {
-      var out = {};
-      for (var key in map) {
-        out[key] = map[key].caption;
-      }
-
-      return out;
-    },
-
-    /**
-     * Get schemas list
-     *
-     * @public
-     * @return {Object.<string, string>} a key-value map with one row by schema. {id: caption}
-     *
-     * @throws {Query.QueryAPINotProvidedError} The queryAPI is not provided to Query
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     */
+    Get schemas list as a key-value map with one row by schema. `{id: caption}`
+    **/
     getSchemas : function () {
 
-      if (this.isCacheEmpty()) {
+      if (this.cache.isCacheEmpty()) {
         var replySchemas = this.queryAPI().explore([]);
-        this.checkAPIResponse(replySchemas);
+        checkAPIResponse(replySchemas);
 
-        var flatSchemasMap = this.mapWithCaptionToSimpleMap(replySchemas.data);
+        var flatSchemasMap = mapWithCaptionToSimpleMap(replySchemas.data);
         for (var key in flatSchemasMap) {
-          this.cacheSchema(key, flatSchemasMap[key]);
+          this.cache.cacheSchema(key, flatSchemasMap[key]);
         }
 
         return flatSchemasMap;
       } else {
-        return this.getSchemasFromCache();
+        return this.cache.getSchemasFromCache();
       }
     },
 
     /**
-     * Get cubes of a schema
-     *
-     * @public
-     * @param {string} idSchema
-     * @return {Object.<string, string>} a key-value map with one row by schema. {id: caption}
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     * @throws {Query.SchemaNotInDatabaseError}
-     */
+    ### *Object* query.**getCubes**(*string* idSchema)
+
+    Get cubes list of a schema as a key-value map with one row by cube. `{id: caption}`.
+    It can throw an error is the schema is not found in the database.
+    **/
     getCubes : function(idSchema) {
 
-      if (!this.isSchemaInCache(idSchema))
+      if (!this.cache.isSchemaInCache(idSchema))
         this.getSchemas();
 
-      if (this.isCubesListEmpty(idSchema)) {
+      if (Object.keys(this.cache.getCubesFromCache(idSchema)).length === 0) {
         var replyCubes = this.queryAPI().explore(new Array(idSchema));
-        this.checkAPIResponse(replyCubes);
-        var flatCubesMap = this.mapWithCaptionToSimpleMap(replyCubes.data);
+        checkAPIResponse(replyCubes);
+        var flatCubesMap = mapWithCaptionToSimpleMap(replyCubes.data);
 
         for (var key in flatCubesMap) {
-          this.cacheCube(idSchema, key, flatCubesMap[key]);
+          this.cache.cacheCube(idSchema, key, flatCubesMap[key]);
         }
 
         return flatCubesMap;
       } else {
-        return this.getCubesFromCache(idSchema);
+        return this.cache.getCubesFromCache(idSchema);
       }
     },
 
     /**
-     * Get mesures of a cube and a schema
-     *
-     * Measures are members of the only level of the only hierarchy of the dimension
-     * with type Measure
-     * @summary Get mesures of a cube and a schema
-     *
-     * @example
-     * {
-     *   "idMeasure1" : {
-     *       "caption" : "theMeasureOne",
-     *       "unit" : "theUnit"
-     *   },
-     *   "idMeasure2" : {
-     *       "caption" : "theMeasureTwo",
-     *       "unit" : "theUnit"
-     *   }
-     * }
-     *
-     * @public
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {Object.<string, Object>} the map
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.LevelNotInDatabaseError}
-     * @throws {Query.HierarchyNotInDatabaseError}
-     * @throws {Query.DimensionNotInDatabaseError}
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
+    ### *Object* query.**getMesures**(*string* idSchema, *string* idCube)
+
+    Get mesures of a cube and a schema.
+    Measures are members of the only level of the only hierarchy of the dimension
+    with type Measure.
+    It can throw an error is the schema or the cube is not found in the database.
+
+    ```js
+    {
+      'idMeasure1' : {
+        'caption' : 'theMeasureOne',
+        'description' : 'the description'
+      },
+      'idMeasure2' : {
+        'caption' : 'theMeasureTwo',
+        'description' : 'the description'
+      }
+    }
+    ```
+    **/
     getMesures : function (idSchema, idCube) {
 
-      if (this.isDimensionsListEmpty(idSchema, idCube))
+      if (!this.cache.isSchemaInCache(idSchema))
+        this.getSchemas();
+
+      if (!this.cache.isCubeInCache(idSchema, idCube))
+        this.getCubes(idSchema);
+
+      if (Object.keys(this.cache.getDimensionsFromCache(idSchema, idCube)).length === 0)
         this.getDimensions(idSchema, idCube);
 
-      var idDimension = this.getMeasureDimension(idSchema, idCube);
+      var idDimension = getMeasureDimension(idSchema, idCube);
       var idHierarchy;
 
       var hierarchies = this.getHierarchies(idSchema, idCube, idDimension);
@@ -644,34 +428,25 @@ analytics.query = (function() {
 
       // We need to load the levels
       this.getLevels(idSchema, idCube, idDimension, idHierarchy);
-      if (this.isLevelsListEmpty(idSchema, idCube, idDimension, idHierarchy))
-        throw new Query.LevelNotInDatabaseError("No level in Measure's hierarchy");
+      if (this.cache.getLevelsFromCache(idSchema, idCube, idDimension, idHierarchy).length === 0)
+        throw "No level in Measure's hierarchy";
 
       return this.getMembers(idSchema, idCube, idDimension, idHierarchy, 0);
     },
 
     /**
-     * Get a list of cubes and for each the measures of this cube
-     *
-     * @todo test this
-     *
-     * @param {string} idSchema
-     * @return {Object<Object>}
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     * @throws {Query.DimensionNotInDatabaseError}
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
+    ### *Object* query.**getCubesAndMesures**(*string* idSchema)
+
+    Get a list of cubes and for each the measures of this cube.
+    It can throw an error is the schema, the cube or the *Measure* dimension
+    is not found in the database.
+    **/
     getCubesAndMeasures : function (idSchema) {
       var out = {};
       var cubes = this.getCubes(idSchema);
 
       for (var key in cubes) {
-        out[key] = { "caption" : cubes[key] , "measures" : {}};
+        out[key] = { 'caption' : cubes[key] , 'measures' : {}};
         var measures = this.getMesures(idSchema, key);
         for (var idMeasure in measures) {
           out[key].measures[idMeasure] = measures[idMeasure];
@@ -682,45 +457,43 @@ analytics.query = (function() {
     },
 
     /**
-     * Get dimensions of a cube in a given schema
-     *
-     * This wil return a map of id : dimensionMap as the following example
-     * @summary Get dimensions of a cube in a given schema
-     *
-     * @example
-     * "idDimension" : {
-     *     "caption" : "theCaption",
-     *     "type" : "theType"
-     * }
-     *
-     * @public
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {Object.<string, Object>} the map or {} if the dimensions list of the given cube is empty
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.IllegalDimensionTypeError}
-     */
-    getDimensions : function (idSchema, idCube) {
+    ### *Object* query.**getDimensions**(*string* idSchema, *string* idCube)
 
-      if (!this.isCubeInCache(idSchema, idCube))
+    Get dimensions of a cube in a given schema or `{}` if the dimensions list
+    of the given cube is empty.
+    It can throw an error is the schema or the cube is not found in
+    the database.
+
+    ```js
+    'idDimension' : {
+      'caption' : 'theCaption',
+      'type' : 'theType'
+    }
+    ```
+    **/
+    getDimensions : function getDimensions(idSchema, idCube) {
+
+      if (!this.cache.isSchemaInCache(idSchema))
+        this.getSchemas();
+
+      if (!this.cache.isCubeInCache(idSchema, idCube))
         this.getCubes(idSchema);
 
       var dimensions;
       var dimensionsReturn = {};
 
-      if (this.isDimensionsListEmpty(idSchema, idCube)) {
+      if (Object.keys(this.cache.getDimensionsFromCache(idSchema, idCube)).length === 0) {
         var replyDimensions = this.queryAPI().explore(new Array(idSchema, idCube));
-        this.checkAPIResponse(replyDimensions);
+        checkAPIResponse(replyDimensions);
 
         for (var key in replyDimensions.data) {
-          this.cacheDimension(idSchema, idCube, key, replyDimensions.data[key].type, replyDimensions.data[key].caption, replyDimensions.data[key].description);
+          var dim = replyDimensions.data[key];
+          this.cache.cacheDimension(idSchema, idCube, key, dim.type, dim.caption, dim.description);
         }
 
         dimensions = replyDimensions.data;
       } else {
-        dimensions = this.getDimensionsFromCache(idSchema, idCube);
+        dimensions = this.cache.getDimensionsFromCache(idSchema, idCube);
       }
 
       for (var idDim in dimensions) {
@@ -732,104 +505,32 @@ analytics.query = (function() {
     },
 
     /**
-     * Get the id of the geographic dimension
-     *
-     * @public
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {string} id of the geographic dimension
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.IllegalDimensionTypeError}
-     */
+    ### *string* query.**getGeoDimension**(*string* idSchema, *string* idCube)
+
+    Get the id of the geographic dimension.
+    It can throw an error is the schema or the cube is not found in
+    the database.
+    **/
     getGeoDimension : function (idSchema, idCube) {
-
-      return this.getXXDimension(idSchema, idCube, "Geometry");
-
+      return getXXDimension(idSchema, idCube, 'Geometry');
     },
 
     /**
-     * Get the id of the time dimension
-     *
-     * @public
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {string} id of the time dimension
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.IllegalDimensionTypeError}
-     */
+    ### *string* query.**getTimeDimension**(*string* idSchema, *string* idCube)
+
+    Get the id of the time dimension.
+    It can throw an error is the schema or the cube is not found in
+    the database.
+    **/
     getTimeDimension : function (idSchema, idCube) {
-
-      return this.getXXDimension(idSchema, idCube, "Time");
-
+      return getXXDimension(idSchema, idCube, 'Time');
     },
 
     /**
-     * Get the id of the measure dimension
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {string} id of the measure dimension
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.IllegalDimensionTypeError}
-     */
-    getMeasureDimension : function (idSchema, idCube) {
+    ### *string* query.**getGeoProperty**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy)
 
-      return this.getXXDimension(idSchema, idCube, "Measure");
-
-    },
-
-    /**
-     * Get the id of the XXXX dimension
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} type that we want to match
-     * @return {string} id of the XXXX dimension
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.DimensionNotInDatabaseError}
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.IllegalDimensionTypeError} The given dimension type is not allowed
-     */
-    getXXDimension : function (idSchema, idCube, type) {
-      if (!this.isAllowedDimensionType(type))
-        throw new Query.IllegalDimensionTypeError();
-
-      // Retrieve all dimensions to get it in cache
-      this.getDimensions(idSchema, idCube);
-      // Get from cache to have all dimensions, with the Measure one
-      var dimensions = this.getDimensionsFromCache(idSchema, idCube);
-      for (var key in dimensions) {
-        if (dimensions[key].type == type)
-          return key;
-      }
-      throw new Query.DimensionNotInDatabaseError("There's no dimension of type "+type+" in cube "+idCube+" of schema "+idSchema);
-    },
-
-    /**
-     * Get the id of the geographical propery of a dimension
-     *
-     * @public
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @return {string} id of the geographical property or {null} if none found
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     */
+    Get the id of the geographical propery of a dimension or null if none found.
+    **/
     getGeoProperty : function (idSchema, idCube, idDimension, idHierarchy) {
 
       var levels = this.getLevels(idSchema, idCube, idDimension, idHierarchy);
@@ -846,172 +547,146 @@ analytics.query = (function() {
     },
 
     /**
-     *
-     * Get the list of hierarchies of a dimension
-     *
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     *
-     * @return {Object<string, string>} map of dimensions associating id with caption.
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     *
-     */
+    ### *Object* query.**getHierarchies**(*string* idSchema, *string* idCube, *string* idDimension)
+
+    Get the list of hierarchies of a dimension.
+    It can throw an error is the schema, the cube or the dimension is not found
+    in the database.
+
+    ```js
+    {
+      'idHierarchy1' : 'captionHierarchy1',
+      'idHierarchy2' : 'captionHierarchy2'
+    }
+    ```
+    **/
     getHierarchies : function (idSchema, idCube, idDimension) {
 
-      if (!this.isDimensionInCache(idSchema, idCube, idDimension))
-        this.getDimensions(idSchema, idCube);
+      loadToDimensions(idSchema, idCube, idDimension);
 
-      if (this.isHierarchiesListEmpty(idSchema, idCube, idDimension)) {
+      if (Object.keys(this.cache.getHierarchiesFromCache(idSchema, idCube, idDimension)).length === 0) {
         var replyHierarchies = this.queryAPI().explore(new Array(idSchema, idCube, idDimension));
-        this.checkAPIResponse(replyHierarchies);
-        var flatHierarchiesMap = this.mapWithCaptionToSimpleMap(replyHierarchies.data);
+        checkAPIResponse(replyHierarchies);
+        var flatHierarchiesMap = mapWithCaptionToSimpleMap(replyHierarchies.data);
 
         for (var key in flatHierarchiesMap) {
-          this.cacheHierarchy(idSchema, idCube, idDimension, key, flatHierarchiesMap[key]);
+          this.cache.cacheHierarchy(idSchema, idCube, idDimension, key, flatHierarchiesMap[key]);
         }
 
         return flatHierarchiesMap;
       } else {
-        return this.getHierarchiesFromCache(idSchema, idCube, idDimension);
+        return this.cache.getHierarchiesFromCache(idSchema, idCube, idDimension);
       }
     },
 
     /**
-     *
-     * Get the list of levels of a hierarchy. Note that Query hide the real level ID.
-     * For Query users, a level is identified by its position in the list.
-     * @summary Get the list of levels of a hierarchy
-     *
-     * @example
-     * [
-     *   "Countries", //caption of the level at 0 position
-     *   "Regions"    //caption of the level at 1 position
-     * ]
-     *
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     *
-     * @return {Array<string>} list of level captions
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.HierarchyNotInDatabaseError}
-     * @throws {Query.DimensionNotInDatabaseError}
-     * @throws {Query.CubeNotInDatabaseError}
-     * @throws {Query.SchemaNotInDatabaseError}
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     */
+    ### *Array\<string\>* query.**getLevels**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy)
+
+    Get the list of levels of a hierarchy. This hides the real level ID.
+    For *analytics.query* users, a level is identified by its position in the list.
+    It can throw an error is the schema, the cube, the dimension or the hierarchy
+    is not found in the database.
+
+    ```js
+    [
+      'Countries', //caption of the level at 0 position
+      'Regions'    //caption of the level at 1 position
+    ]
+    ```
+    **/
     getLevels : function (idSchema, idCube, idDimension, idHierarchy) {
 
-      if (!this.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy))
+      loadToDimensions(idSchema, idCube, idDimension);
+
+      if (!this.cache.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy))
         this.getHierarchies(idSchema, idCube, idDimension);
 
-      if (this.isLevelsListEmpty(idSchema, idCube, idDimension, idHierarchy)) {
+      if (this.cache.getLevelsFromCache(idSchema, idCube, idDimension, idHierarchy).length === 0) {
         var reply = this.queryAPI().explore(new Array(idSchema, idCube, idDimension, idHierarchy), true);
-        this.checkAPIResponse(reply);
+        checkAPIResponse(reply);
 
         var out = [];
         for (var index=0; index < reply.data.length; index++) {
-          this.cacheLevel(idSchema, idCube, idDimension, idHierarchy, reply.data[index].id, reply.data[index].caption, reply.data[index].description);
+          this.cache.cacheLevel(idSchema, idCube, idDimension, idHierarchy, reply.data[index].id, reply.data[index].caption, reply.data[index].description);
           out.push(reply.data[index].caption);
 
           // Cache properties into the current level
-          for(var key in reply.data[index]["list-properties"]) {
-            this.cacheProperty(idSchema, idCube, idDimension, idHierarchy, index, key, reply.data[index]["list-properties"][key].caption, reply.data[index]["list-properties"][key].description, reply.data[index]["list-properties"][key].type);
+          for(var key in reply.data[index]['list-properties']) {
+            this.cache.cacheProperty(idSchema, idCube, idDimension, idHierarchy, index, key, reply.data[index]['list-properties'][key].caption, reply.data[index]['list-properties'][key].description, reply.data[index]['list-properties'][key].type);
           }
         }
 
         return out;
       } else {
-        return this.getLevelsFromCache(idSchema, idCube, idDimension, idHierarchy);
+        return this.cache.getLevelsFromCache(idSchema, idCube, idDimension, idHierarchy);
       }
     },
 
     /**
-     * Get the list of members
-     *
-     * If parentMember parameter is not set, returns the map of all members of the specified level with or
-     * without the properties values depending on the properties parameter.
-     *
-     * If parentMember parameter is set (parentMember being a member of the level idLevel), returns the map
-     * of all members descending from this member from the level idlevel + descendingLevel.
-     *
-     * Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
-     * @summary Get the list of members
-     *
-     * @todo cache
-     *
-     * @example
-     * {
-     *  "FR" : // member key
-     *    {
-     *      "caption" : "France",
-     *      "geometry" : {<geoJSONofFrance>}, // property area value
-     *      "area" : 123.5 // property area value
-     *    },
-     *  "BE" :
-     *    {
-     *      "caption" : "Belgium",
-     *      "geometry" : {<geoJSONofBelgium>},
-     *      "area" : 254.1
-     *    },
-     *    ...
-     * }
-     *
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel
-     * @param {boolean} [withProperties=false] Return the properties values of the members
-     * @param {string} [parentMember=] ID of the parent from which we want the childrens
-     * @param {integer} [descendingLevel=1] Number of descending levels if parentMember is specified
-     * @return {Object} list of level captions
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.LevelNotInDatabaseError}
-     * @throws {Query.HierarchyNotInDatabaseError}
-     * @throws {Query.DimensionNotInDatabaseError}
-     * @throws {Query.CubeNotInDatabaseError}
-     * @throws {Query.SchemaNotInDatabaseError}
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     */
-    getMembers : function (idSchema, idCube, idDimension, idHierarchy, indexLevel, withProperties, parentMember, descendingLevel) {
+    ### *Object* query.**getMembers**(*string* idSchema, *string* idCube,
+     *string* idDimension, *string* idHierarchy, *integer* indexLevel
+     [, *boolean* withProperties=false [, *string* parentMember
+     [, *integer* descendingLevel=1]]])
 
-      if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel)) {
+    Get the list of members.
+
+    If `parentMember` parameter is not set, returns the map of all members of the
+    specified level with or without the properties values depending on the
+    properties parameter.
+
+    If `parentMember` parameter is set (`parentMember` being a member of the
+    level `idLevel`), returns the map of all members descending from this member
+    from the level `idlevel + descendingLevel`.
+
+    Note that this hides the real level ID. For *analytics.query* users, a level
+    is identified by its position in the list.
+
+    This can throw an error is the schema, the cube, the dimension, the hierarchy
+    or the level is not found in the database.
+
+    ```js
+    {
+     'FR' : // member key
+       {
+         'caption' : 'France',
+         'geometry' : {<geoJSONofFrance>}, // property geometry value
+       },
+     'BE' :
+       {
+         'caption' : 'Belgium',
+         'geometry' : {<geoJSONofBelgium>}
+       },
+       ...
+    }
+    ```
+    **/
+    getMembers : function (idSchema, idCube, idDimension, idHierarchy, indexLevel, withProperties, parentMember, descendingLevel) {
+      loadToDimensions(idSchema, idCube, idDimension);
+
+      if (!this.cache.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy))
+        this.getHierarchies(idSchema, idCube, idDimension);
+
+      if (!this.cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel)) {
         this.getLevels(idSchema, idCube, idDimension, idHierarchy);
-        if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
-          throw new Query.LevelNotInDatabaseError();
+        if (!this.cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
+          throw 'The level you tried to use does not exists in the database!';
       }
 
       // Default values for parameters
-      withProperties = typeof withProperties !== "undefined" ? withProperties : false;
-      if (typeof parentMember !== "undefined")
-        descendingLevel = typeof descendingLevel !== "undefined" ? descendingLevel : 1;
+      withProperties = typeof withProperties !== 'undefined' ? withProperties : false;
+      if (typeof parentMember !== 'undefined')
+        descendingLevel = typeof descendingLevel !== 'undefined' ? descendingLevel : 1;
 
-      var idLevel = this.getLevelIDFromIndex(idSchema, idCube, idDimension, idHierarchy, indexLevel);
+      var idLevel = this.cache.getLevelIDFromIndex(idSchema, idCube, idDimension, idHierarchy, indexLevel);
       var reply;
 
-      if (typeof parentMember === "undefined") {
+      if (typeof parentMember === 'undefined') {
         reply = this.queryAPI().explore(new Array(idSchema, idCube, idDimension, idHierarchy, idLevel), withProperties);
       } else {
         reply = this.queryAPI().explore(new Array(idSchema, idCube, idDimension, idHierarchy, idLevel, parentMember), withProperties, descendingLevel);
       }
 
-      this.checkAPIResponse(reply);
+      checkAPIResponse(reply);
 
       if (withProperties === true && reply.data != {}) {
 
@@ -1035,52 +710,37 @@ analytics.query = (function() {
     },
 
     /**
-     * Get the list of member objects from their IDs
-     *
-     * Note that Query hide the real level ID. For Query users, a level is identified by its position in the list.
-     * @summary Get the list of member objects from their IDs
-     *
-     * @todo cache
-     *
-     * @example
-     * {
-     *  "FR" : // member key
-     *    {
-     *      "caption" : "France",
-     *      "geometry" : {<geoJSONofFrance>}, // property area value
-     *      "area" : 123.5 // property area value
-     *    },
-     *  "BE" :
-     *    {
-     *      "caption" : "Belgium",
-     *      "geometry" : {<geoJSONofBelgium>},
-     *      "area" : 254.1
-     *    },
-     *    ...
-     * }
-     *
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel
-     * @param {Array.<string>} membersIds the IDs of the members
-     * @param {boolean} [withProperties=false] Return the properties values of the members
-     * @return {Object} list of level captions
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.LevelNotInDatabaseError}
-     * @throws {Query.HierarchyNotInDatabaseError}
-     * @throws {Query.DimensionNotInDatabaseError}
-     * @throws {Query.CubeNotInDatabaseError}
-     * @throws {Query.SchemaNotInDatabaseError}
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     */
+    ### *Object* query.**getMembersInfos**(*string* idSchema, *string* idCube,
+     *string* idDimension, *string* idHierarchy, *integer* indexLevel,
+     *Array* membersIds [, *boolean* withProperties=false])
+
+    Get the list of member objects from their IDs.
+
+    Note that this hides the real level ID. For *analytics.query* users, a level
+    is identified by its position in the list.
+
+    This can throw an error is the schema, the cube, the dimension, the hierarchy
+    or the level is not found in the database.
+
+    ```js
+    {
+     'FR' : // member key
+       {
+         'caption' : 'France',
+         'geometry' : {<geoJSONofFrance>} // property geometry value
+       },
+     'BE' :
+       {
+         'caption' : 'Belgium',
+         'geometry' : {<geoJSONofBelgium>}
+       },
+       ...
+    }
+    ```
+    **/
     getMembersInfos : function (idSchema, idCube, idDimension, idHierarchy, indexLevel, membersIds, withProperties) {
 
-      if(typeof membersIds != "object")
+      if(typeof membersIds != 'object')
         throw new Error("You provided an illegal parameter. Array expected");
 
       if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel)) {
@@ -1090,12 +750,12 @@ analytics.query = (function() {
       }
 
       // Default values for parameters
-      withProperties = typeof withProperties !== "undefined" ? withProperties : false;
+      withProperties = typeof withProperties !== 'undefined' ? withProperties : false;
 
       var idLevel = this.getLevelIDFromIndex(idSchema, idCube, idDimension, idHierarchy, indexLevel);
 
       var reply = this.queryAPI().explore(new Array(idSchema, idCube, idDimension, idHierarchy, idLevel, membersIds), withProperties, 0);
-      this.checkAPIResponse(reply);
+      checkAPIResponse(reply);
 
       if (withProperties === true && reply.data != {}) {
 
@@ -1119,850 +779,135 @@ analytics.query = (function() {
     },
 
     /**
-     * Get the list of properties of a level
-     *
-     * @example
-     * {
-     *   "geom" : {
-     *     "caption" : "Geom",
-     *     "type" : "Geometry"
-     *   },
-     *   "surf" : {
-     *     "caption" : "Surface",
-     *     "type" : "Standard"
-     *   }
-     * }
-     *
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel the index of the level in the array of hierarchy
-     *
-     * @return {Object<string, Object<string, string>>} list of properties
-     *
-     * @throws {Query.QueryAPINotProvidedError}
-     * @throws {Query.LevelNotInDatabaseError}
-     * @throws {Query.HierarchyNotInDatabaseError}
-     * @throws {Query.DimensionNotInDatabaseError}
-     * @throws {Query.CubeNotInDatabaseError}
-     * @throws {Query.SchemaNotInDatabaseError}
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     */
+    ### *Object* query.**getProperties**(*string* idSchema, *string* idCube,
+     *string* idDimension, *string* idHierarchy, *integer* indexLevel)
+
+    Get the list of properties of a level.
+
+    This can throw an error is the schema, the cube, the dimension, the hierarchy
+    or the level is not found in the database.
+
+    ```js
+    {
+      "geom" : {
+        "caption" : "Geom",
+        "type" : "Geometry"
+      },
+      "surf" : {
+        "caption" : "Surface",
+        "type" : "Standard"
+      }
+    }
+    ```
+    **/
     getProperties : function (idSchema, idCube, idDimension, idHierarchy, indexLevel) {
-      if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
+
+      loadToDimensions(idSchema, idCube, idDimension);
+
+      if (!this.cache.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy))
+        this.getHierarchies(idSchema, idCube, idDimension);
+
+      if (!this.cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
         this.getLevels(idSchema, idCube, idDimension, idHierarchy);
 
       //As we fetch properties with their level, we just have to load it from the cache
-      return this.getPropertiesFromCache(idSchema, idCube, idDimension, idHierarchy, indexLevel);
+      return this.cache.getPropertiesFromCache(idSchema, idCube, idDimension, idHierarchy, indexLevel);
     },
 
-    //------------
-    //--- DATA ---
-    //------------
-
     /**
-     * Specify the wube you want to work on
-     *
-     * @public
-     * @param {string} idCube
-     */
+    ### query.**drill**(*string* idCube)
+
+    Specifies the cube to work on.
+    **/
     drill : function(idCube) {
       this.queryAPI().drill(idCube);
     },
 
     /**
-     * Add the given measure to the set of measures you want to work on
-     *
-     * @public
-     * @param {string} idMeasure
-     */
+    ### query.**push**(*string* idMeasure)
+
+    Add the given measure to the set of measures to work on.
+    **/
     push : function(idMeasure) {
       this.queryAPI().push(idMeasure);
     },
 
     /**
-     * Remove the given measure to the set of measures you want to work on
-     *
-     * @public
-     * @param {string} idMeasure
-     */
+    ### query.**pull**(*string* idMeasure)
+
+    Remove the given measure to the set of measures to work on.
+    **/
     pull : function(idMeasure) {
       this.queryAPI().pull(idMeasure);
     },
 
     /**
-     * Add the given hierarchy to the list of agregates and filter on the given members
-     *
-     * @public
-     * @param {string} idHierarchy
-     * @param {Array<string>} [members] the IDs of the members you want to aggregate. All members of the hierarchy if undefined
-     * @param {boolean} [range=false] if you want all the members between only bound values you give in member's array
-     */
+    ### query.**slice**(*string* idHierarchy [, *Array\<string\>* members [, *boolean* range=false]])
+
+    Add the given hierarchy to the list of agregates and filter on the given members.
+
+    The user can specify the IDs of the members to aggregate; all members of the hierarchy if undefined.
+    The user can also indicate if *analytics.query* should filter on all the members between
+    bound values given in the `members` array with `range=true`.
+    **/
     slice : function(idHierarchy, members, range) {
       this.queryAPI().slice(idHierarchy, members, range);
     },
 
     /**
-     * Add dice behavior to a list of hierarchies, that is to say those hierarchies
-     * won't be completely aggregated.
-     *
-     * @public
-     * @param {Array<String>} hierarchies
-     */
+    ### query.**dice**(*Array\<string\>* hierarchies)
+
+    Add dice behavior to a list of hierarchies, that is to say those hierarchies
+    won't be completely aggregated.
+    **/
     dice : function (hierarchies) {
       this.queryAPI().dice(hierarchies);
     },
 
     /**
-     * Remove the given hierarchy of the selected agregates
-     *
-     * @public
-     * @param {string} idHierarchy
-     */
+    ### query.**project**(*string* idHierarchy)
+
+    Remove the given hierarchy of the selected agregates.
+    **/
     project : function(idHierarchy) {
       this.queryAPI().project(idHierarchy);
     },
 
     /**
-     * Filter
-     *
-     * @public
-     * @param {string} idHierarchy
-     * @param {Array<string>} [members] the IDs of the members. All members of the hierarchy if undefined
-     * @param {boolean} [range=false] if you want all the members between only bound values you give in member's array
-     */
+    ### query.**filter**(*string* idHierarchy [, *Array\<string\>* members [, *boolean* range=false]])
+
+    Filter
+    **/
     filter : function(idHierarchy, members, range) {
       this.queryAPI().filter(idHierarchy, members, range);
     },
 
     /**
-     * Executes the request. This is a synchronous operation
-     *
-     * @return {Object} the structured reply
-     */
-    execute : function() {
+    ### *Object* query.**execute**()
 
+    Execute the request.
+
+    This is a synchronous operation. This returns the structured reply.
+    **/
+    execute : function() {
       var response = this.queryAPI().execute();
 
-      this.checkAPIResponse(response);
+      checkAPIResponse(response);
       return response.data;
     },
 
     /**
-     * Flush all the request
-     */
+    ### query.**clear**()
+
+    Flush all the request.
+    **/
     clear : function() {
       this.queryAPI().clear();
-    },
-
-    /**
-     * Checks the given response from the QueryAPI component
-     *
-     * Throws exception is the given response from the QueryAPI is malformed
-     * or contains an error code
-     * @summary Checks the given response from the QueryAPI component
-     *
-     * @private
-     * @param {Object} response the response from QueryAPI
-     * @return {boolean} true for a regular response format
-     *
-     * @throws {Query.QueryAPIBadRequestError}
-     * @throws {Query.QueryAPINotSupportedError}
-     * @throws {Query.IllegalAPIResponseError}
-     */
-    checkAPIResponse : function(response) {
-      if (response.error === 'BAD_REQUEST')
-        throw new Query.QueryAPIBadRequestError();
-      if (response.error === 'NOT_SUPPORTED')
-        throw new Query.QueryAPINotSupportedError();
-      if (response.error === 'SERVER_ERROR')
-        throw new Query.QueryAPIServerError();
-      if (response.error === undefined || response.data === undefined || response === {})
-        throw new Query.IllegalAPIResponseError();
-
-      return (true);
-    },
-
-    /**
-     * Determines if the given type is a legal type of dimension
-     *
-     * @private
-     * @param {string} type
-     * @return {boolean} true for a legal dimension type
-     */
-    isAllowedDimensionType : function(type) {
-      return ( (type === "Time") || (type == "Measure") || (type == "Standard") || (type == "Geometry") );
-    },
-
-    //---------------
-    //CACHE FUNCTIONS
-    //---------------
-
-    /**
-     * Store the given schema in the metadatas cache
-     *
-     * @private
-     * @param {string} id the schema's id
-     * @param {string} caption the schema's caption
-     */
-    cacheSchema : function(id, caption) {
-      if( !this.isSchemaInCache(id) ) {
-        if( this.isCacheEmpty() )
-          this.metadatas.schemas = {};
-
-        this.metadatas.schemas[id] = { "caption" : caption };
-      }
-    },
-
-    /**
-     * Store the given cube in the metadatas cache into the given schema
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} caption the cube's caption
-     *
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    cacheCube : function(idSchema, idCube, caption, description) {
-      if (!this.isCubeInCache(idSchema, idCube)) {
-        if (this.metadatas.schemas[idSchema].cubes === undefined)
-          this.metadatas.schemas[idSchema].cubes = {};
-
-          this.metadatas.schemas[idSchema].cubes[idCube] = {"caption" : caption, "description" : description};
-      }
-    },
-
-    /**
-     * Store the given dimension in the metadatas cache into the given cube
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} type the dimension's type
-     * @param {string} caption the dimension's caption
-     *
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.IllegalDimensionTypeError} The given dimension type is not allowed
-     */
-    cacheDimension : function(idSchema, idCube, idDimension, type, caption, description) {
-      if (!this.isAllowedDimensionType(type))
-        throw new Query.IllegalDimensionTypeError(type+" is not a valid dimension type!");
-
-      if (!this.isDimensionInCache(idSchema, idCube, idDimension)) {
-        if (this.metadatas.schemas[idSchema].cubes[idCube].dimensions === undefined)
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions = {};
-
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension] = {"type" : type, "caption" : caption, "description" : description};
-      }
-    },
-
-    /**
-     * Store the given hierarchy in the metadatas cache into the given dimension
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {string} caption the hierarchy's caption
-     *
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    cacheHierarchy : function(idSchema, idCube, idDimension, idHierarchy, caption, description) {
-      if (!this.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy)) {
-        if (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies === undefined)
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies = {};
-
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy] = {"caption" : caption, "description" : description};
-      }
-    },
-
-    /**
-     * Store the given level in the metadatas cache into the given hierarchy
-     *
-     * @todo add unit test
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {string} idLevel
-     * @param {string} caption the level's caption
-     *
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    cacheLevel : function(idSchema, idCube, idDimension, idHierarchy, idLevel, caption, description) {
-      if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, idLevel)) {
-        if (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels === undefined)
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels = [];
-
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels.push({"id" : idLevel, "caption" : caption, "description": description});
-      }
-    },
-
-    /**
-     * Store the given property in the metadatas cache into the given level
-     *
-     * @todo add unit test
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel the index of the level in the array of hierarchy
-     * @param {string} idProperty
-     * @param {string} caption the property's caption
-     * @param {string} type the property's type
-     *
-     * @throws {Query.LevelNotInDatabaseError} The given level doesn't exists
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    cacheProperty : function(idSchema, idCube, idDimension, idHierarchy, indexLevel, idProperty, caption, description, type) {
-      if (!this.isPropertyInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel, idProperty)) {
-        if (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties === undefined)
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties = {};
-
-          this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties[idProperty] = {"caption" : caption, "description": description, "type" : type};
-      }
-    },
-
-    //------------
-    //CACHE SEARCH
-    //------------
-
-    /**
-     * Determines if a schema with the given id is in the metadata cache
-     *
-     * @private
-     * @param {string} id the id of the schema
-     * @return {boolean} true if a schema is already cached with this id
-     */
-    isSchemaInCache : function(id) {
-      if (this.isCacheEmpty())
-        return false;
-      for (var key in this.metadatas.schemas) {
-        if(key == id)
-          return true;
-      }
-      return false;
-    },
-
-    /**
-     * Determines if a cube with the given id is in the given schema in the metadata cache
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {boolean} true if a cube is already cached with this idCube in this schema
-     *
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isCubeInCache : function(idSchema, idCube) {
-      if (this.isCubesListEmpty(idSchema))
-        return false;
-
-      for (var key in this.metadatas.schemas[idSchema].cubes) {
-        if(key == idCube)
-          return true;
-      }
-      return false;
-    },
-
-    /**
-     * Determines if a dimension with the given id is in the given cube in the metadata cache
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @return {boolean} true if a dimension is already cached with this idDimension in this cube
-     *
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isDimensionInCache : function(idSchema, idCube, idDimension) {
-      if (this.isDimensionsListEmpty(idSchema, idCube))
-        return false;
-
-      for (var key in this.metadatas.schemas[idSchema].cubes[idCube].dimensions) {
-        if(key == idDimension)
-          return true;
-      }
-      return false;
-    },
-
-    /**
-     * Determines if a hierarchy with the given id is in the given dimension in the metadata cache
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @return {boolean} true if a hierarchy is already cached with this idHierarchy in this dimension
-     *
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isHierarchyInCache : function(idSchema, idCube, idDimension, idHierarchy) {
-      if (this.isHierarchiesListEmpty(idSchema, idCube, idDimension))
-        return false;
-
-      for (var key in this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies) {
-        if(key == idHierarchy)
-          return true;
-      }
-      return false;
-    },
-
-    /**
-     * Determines if a level with the given id is in the given hierarchy in the metadata cache
-     *
-     * @todo add unit test
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel the index of the level in the array of hierarchy
-     * @return {boolean} true if a level is already cached with this idLevel in this hierarchy
-     *
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isLevelInCache : function(idSchema, idCube, idDimension, idHierarchy, indexLevel) {
-      return (
-        !this.isLevelsListEmpty(idSchema, idCube, idDimension, idHierarchy) && (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel] !== undefined)
-      );
-    },
-
-    /**
-     * Determines if a property with the given id is in the given level in the metadata cache
-     *
-     * @todo add unit test
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel the index of the level in the array of hierarchy
-     * @param {string} idProperty
-     * @return {boolean} true if a property is already cached with this id in this level
-     *
-     * @throws {Query.LevelNotInDatabaseError} The given level doesn't exists
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isPropertyInCache : function(idSchema, idCube, idDimension, idHierarchy, indexLevel, idProperty) {
-      if (this.isPropertiesListEmpty(idSchema, idCube, idDimension, idHierarchy, indexLevel))
-        return false;
-
-      for (var key in this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties) {
-        if(key == idProperty)
-          return true;
-      }
-      return false;
-    },
-
-    /**
-     * Determines if the metadatas cache is absolutely empty
-     *
-     * @private
-     * @return {boolean} true if the cache is empty
-     */
-    isCacheEmpty : function() {
-      return ( (Object.keys(this.metadatas).length === 0) && (this.metadatas.schemas === undefined) );
-    },
-
-    /**
-     * Determines if the given schema in  metadatas cache contains cubes
-     *
-     * @private
-     * @param {string} idSchema
-     * @return {boolean} true if the schema is empty
-     *
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isCubesListEmpty : function(idSchema) {
-      if (!this.isSchemaInCache(idSchema)) {
-          this.getSchemas();
-          if (!this.isSchemaInCache(idSchema))
-            throw new Query.SchemaNotInDatabaseError("Query: The given schema is not in metadatas cache");
-      }
-
-      return (
-        (this.metadatas.schemas[idSchema].cubes === undefined) || (Object.keys(this.metadatas.schemas[idSchema].cubes).length === 0)
-      );
-    },
-
-    /**
-     * Determines if the given cube in metadatas cache contains dimensions
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {boolean} true if the cube is empty
-     *
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     */
-    isDimensionsListEmpty : function(idSchema, idCube) {
-      if (!this.isCubeInCache(idSchema, idCube)) {
-        this.getCubes(idSchema);
-        if (!this.isCubeInCache(idSchema, idCube))
-          throw new Query.CubeNotInDatabaseError();
-      }
-
-      return (
-        (this.metadatas.schemas[idSchema].cubes[idCube].dimensions === undefined) || (Object.keys(this.metadatas.schemas[idSchema].cubes[idCube].dimensions).length === 0)
-      );
-    },
-
-    /**
-     * Determines if the given dimension in metadatas cache contains hierarchies
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @return {boolean} true if the dimension is empty
-     *
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isHierarchiesListEmpty : function(idSchema, idCube, idDimension) {
-      if (!this.isDimensionInCache(idSchema, idCube, idDimension)) {
-        this.getDimensions(idSchema, idCube);
-        if (!this.isDimensionInCache(idSchema, idCube, idDimension))
-          throw new Query.DimensionNotInDatabaseError();
-      }
-
-      return (
-        (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies === undefined) || (Object.keys(this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies).length === 0)
-      );
-    },
-
-    /**
-     * Determines if the given hierarchy in metadatas cache contains levels
-     *
-     * @todo add unit test
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @return {boolean} true if the hierarchy is empty
-     *
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isLevelsListEmpty : function(idSchema, idCube, idDimension, idHierarchy) {
-      if (!this.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy)) {
-        this.getHierarchies(idSchema, idCube, idDimension);
-        if (!this.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy))
-          throw new Query.HierarchyNotInDatabaseError();
-      }
-
-      return (
-        (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels === undefined) || (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels.length === 0)
-      );
-    },
-
-    /**
-     * Determines if the given level in metadatas cache contains properties
-     *
-     * @todo add unit test
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel the index of the level in the array of hierarchy
-     * @return {boolean} true if the hierarchy is empty
-     *
-     * @throws {Query.LevelNotInDatabaseError} The given level doesn't exists
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    isPropertiesListEmpty : function(idSchema, idCube, idDimension, idHierarchy, indexLevel) {
-      if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel)) {
-        this.getLevels(idSchema, idCube, idDimension, idHierarchy);
-        if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
-          throw new Query.LevelNotInDatabaseError();
-      }
-
-      return (
-        (this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties === undefined) || (Object.keys(this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties).length === 0)
-      );
-    },
-
-    /**
-     * Clear the metadatas cache and the schemas poperty
-     *
-     * @private
-     * @example
-     * >>>this.isCacheEmpty();
-     * false
-     * >>>this.clearCache();
-     * >>>this.isCacheEmpty();
-     * true
-     */
-    clearCache : function() {
-      if(!this.isCacheEmpty())
-        delete this.metadatas.schemas;
-    },
-
-    //-----------------------------
-    //RETRIEVE FROM CACHE FUNCTIONS
-    //-----------------------------
-
-    /**
-     * Retrieve the list of schemas from the cache as a flat map of strings idSchema : caption
-     *
-     * @private
-     * @return {Object.<string, string>} the flat map or {} if the cache is empty
-     */
-    getSchemasFromCache : function() {
-      if (this.isCacheEmpty())
-        return {};
-      else
-        return this.mapWithCaptionToSimpleMap(this.metadatas.schemas);
-    },
-
-    /**
-     * Retrieve the list of cubes of a schema from the cache as a flat map of strings idCube : caption
-     *
-     * @private
-     * @param {string} idSchema
-     * @return {Object.<string, string>} the flat map or {} if the cube list is empty
-     *
-     * @throws {Query.SchemaNotInDatabaseError} The given schema is not in metadatas cache
-     */
-    getCubesFromCache : function(idSchema) {
-      if (this.isCubesListEmpty(idSchema))
-        return {};
-      else
-        return this.mapWithCaptionToSimpleMap(this.metadatas.schemas[idSchema].cubes);
-    },
-
-    /**
-     * Retrieve the list of dimensions of a cube from the cache as a map of strings
-     *
-     * @example
-     * "idDimension" : {
-     *     "caption" : "theCaption",
-     *     "type" : "theType"
-     * }
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @return {Object.<string, Object>} the map or {} if the dimensions list of the given cube is empty
-     *
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     */
-    getDimensionsFromCache : function(idSchema, idCube) {
-      if (this.isDimensionsListEmpty(idSchema, idCube))
-        return {};
-      else
-        return this.metadatas.schemas[idSchema].cubes[idCube].dimensions;
-    },
-
-    /**
-     * Retrieve the list of hierarchies of a dimension from the cache as a map of strings
-     *
-     * @example
-     * {
-     * "idHierarchyA" : "captionHierarchyA",
-     * "idHierarchyB" : "captionHierarchyB"
-     * }
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @return {Object.<string, string>} the map or {} if the hierarchies list of the given dimension is empty
-     *
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    getHierarchiesFromCache : function(idSchema, idCube, idDimension) {
-      if (this.isHierarchiesListEmpty(idSchema, idCube, idDimension))
-        return {};
-      else {
-        return this.mapWithCaptionToSimpleMap(this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies);
-      }
-    },
-
-    /**
-     * Retrieve the list of levels of a hierarchy from the cache as an array of strings
-     * Note that the strings are the captions of the levels, not their id
-     *
-     * @example
-     * [
-     * "captionHierarchyA",
-     * "captionHierarchyB"
-     * ]
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @return {Array.<string>} the array or [] if the levels list of the given hierarchy is empty
-     *
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    getLevelsFromCache : function(idSchema, idCube, idDimension, idHierarchy) {
-      if (this.isLevelsListEmpty(idSchema, idCube, idDimension, idHierarchy))
-        return [];
-      else {
-        var out = [];
-        for (var index=0; index < this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels.length; index++) {
-          out[index] = this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[index].caption;
-        }
-        return out;
-      }
-    },
-
-    /**
-     * Retrieve the list of properties of a level from the cache
-     *
-     * @example
-     * {
-     *   "geom" : {
-     *     "caption" : "Geom",
-     *     "type" : "Geometry"
-     *   },
-     *   "surf" : {
-     *     "caption" : "Surface",
-     *     "type" : "Standard"
-     *   }
-     * }
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel the index of the level in the array's hierarchy
-     * @return {Object} list of properties
-     *
-     * @throws {Query.LevelNotInDatabaseError} The given level doesn't exists
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    getPropertiesFromCache : function(idSchema, idCube, idDimension, idHierarchy, indexLevel) {
-      if (this.isPropertiesListEmpty(idSchema, idCube, idDimension, idHierarchy, indexLevel))
-        return {};
-      else
-        return this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties;
-    },
-
-    /**
-     * Get the level's ID from its index
-     *
-     * @private
-     * @param {string} idSchema
-     * @param {string} idCube
-     * @param {string} idDimension
-     * @param {string} idHierarchy
-     * @param {integer} indexLevel the index of the level in the array's hierarchy
-     * @return {string} the level's ID
-     *
-     * @throws {Query.LevelNotInDatabaseError} The given level doesn't exists
-     * @throws {Query.HierarchyNotInDatabaseError} The given hierarchy doesn't exists
-     * @throws {Query.DimensionNotInDatabaseError} The given dimension doesn't exists
-     * @throws {Query.CubeNotInDatabaseError} The given cube doesn't exists
-     * @throws {Query.SchemaNotInDatabaseError} The given schema doesn't exists
-     */
-    getLevelIDFromIndex : function(idSchema, idCube, idDimension, idHierarchy, indexLevel) {
-      if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
-        throw new Query.LevelNotInDatabaseError();
-
-      return this.metadatas.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].id;
     },
 
     //---------------
     //EXCEPTIONS
     //---------------
-
-    /**
-     * @class
-     */
-    SchemaNotInDatabaseError : function (message) {
-      this.name = "SchemaNotInDatabaseError";
-      this.message = message || "The schema you tried to use does not exists in the database!";
-    },
-
-    /**
-     * @class
-     */
-    CubeNotInDatabaseError : function (message) {
-      this.name = "CubeNotInDatabaseError";
-      this.message = message || "The cube you tried to use does not exists in the database!";
-    },
-
-    /**
-     * @class
-     */
-    DimensionNotInDatabaseError : function (message) {
-      this.name = "DimensionNotInDatabaseError";
-      this.message = message || "The dimension you tried to use does not exists in the database!";
-    },
-
-    /**
-     * @class
-     */
-    HierarchyNotInDatabaseError : function (message) {
-      this.name = "HierarchyNotInDatabaseError";
-      this.message = message || "The hierarchy you tried to use does not exists in the database!";
-    },
-
-    /**
-     * @class
-     */
-    LevelNotInDatabaseError : function (message) {
-      this.name = "LevelNotInDatabaseError";
-      this.message = message || "The level you tried to use does not exists in the database!";
-    },
 
     /**
      * @class
@@ -2014,21 +959,6 @@ analytics.query = (function() {
   };
 
   // Exceptions properties initialization
-  Query.SchemaNotInDatabaseError.prototype = new Error();
-  Query.SchemaNotInDatabaseError.prototype.constructor = Query.SchemaNotInDatabaseError;
-
-  Query.CubeNotInDatabaseError.prototype = new Error();
-  Query.CubeNotInDatabaseError.prototype.constructor = Query.CubeNotInDatabaseError;
-
-  Query.DimensionNotInDatabaseError.prototype = new Error();
-  Query.DimensionNotInDatabaseError.prototype.constructor = Query.DimensionNotInDatabaseError;
-
-  Query.HierarchyNotInDatabaseError.prototype = new Error();
-  Query.HierarchyNotInDatabaseError.prototype.constructor = Query.HierarchyNotInDatabaseError;
-
-  Query.LevelNotInDatabaseError.prototype = new Error();
-  Query.LevelNotInDatabaseError.prototype.constructor = Query.LevelNotInDatabaseError;
-
   Query.QueryAPIServerError.prototype = new Error();
   Query.QueryAPIServerError.prototype.constructor = Query.QueryAPIServerError;
 
@@ -2047,9 +977,514 @@ analytics.query = (function() {
   Query.IllegalDimensionTypeError.prototype = new Error();
   Query.IllegalDimensionTypeError.prototype.constructor = Query.IllegalDimensionTypeError;
 
+Query._getMeasureDimension = getMeasureDimension;
+Query._getXXDimension = getXXDimension;
+
+
   return Query;
 
 })();
+
+/**
+## analytics.**query.cache** namespace
+
+This namespace contains functions related to the caching of metadata.
+
+It is used in `analytics.query` only.
+It has the following functions:
+
+* ### *Object* analytics.**query.cache**()
+**/
+analytics.query.cache = (function () {
+
+  var _metadata = {};
+  var _cache = {};
+
+  /**
+  ### query.cache.**clearCache**()
+
+  Clear the metadata cache. This method should be considered protected and must not
+  be called outside of the `analytics.query` namespace.
+
+  ```
+  > analytics.query.cache.isCacheEmpty();
+  false
+  > analytics.query.cache.clearCache();
+  > analytics.query.cache.isCacheEmpty();
+  true
+  ```
+  **/
+  _cache.clearCache = function() {
+    if(!this.isCacheEmpty())
+      delete _metadata.schemas;
+  };
+
+  /**
+  ### Search functions
+
+  The following functions define if an element is stored in the cache.
+  They must be considered as protected, and should not be called
+  outside of the `analytics.query` namespace.
+
+  * *boolean* query.cache.**isCacheEmpty**()
+  * *boolean* query.cache.**isSchemaInCache**(*string* id)
+  * *boolean* query.cache.**isCubeInCache**(*string* idSchema, *string* idCube)
+  * *boolean* query.cache.**isDimensionInCache**(*string* idSchema, *string* idCube, *string* idDimension)
+  * *boolean* query.cache.**isHierarchyInCache**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy)
+  * *boolean* query.cache.**isLevelInCache**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, (*integer* indexLevel | *string* idLevel))
+  * *boolean* query.cache.**isPropertyInCache**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel, *string* idProperty)
+  **/
+
+  _cache.isCacheEmpty = function() {
+    return ( (Object.keys(_metadata).length === 0) && (_metadata.schemas === undefined) );
+  };
+
+  _cache.isSchemaInCache = function(id) {
+    if (this.isCacheEmpty())
+      return false;
+    for (var key in _metadata.schemas) {
+      if(key == id)
+        return true;
+    }
+    return false;
+  };
+
+  _cache.isCubeInCache = function (idSchema, idCube) {
+    if (isCubesListEmpty(idSchema))
+      return false;
+
+    for (var key in _metadata.schemas[idSchema].cubes) {
+      if(key == idCube)
+        return true;
+    }
+    return false;
+  };
+
+  _cache.isDimensionInCache = function (idSchema, idCube, idDimension) {
+    if (isDimensionsListEmpty(idSchema, idCube))
+      return false;
+
+    for (var key in _metadata.schemas[idSchema].cubes[idCube].dimensions) {
+      if(key == idDimension)
+        return true;
+    }
+    return false;
+  };
+
+  _cache.isHierarchyInCache = function (idSchema, idCube, idDimension, idHierarchy) {
+    if (isHierarchiesListEmpty(idSchema, idCube, idDimension))
+      return false;
+
+    for (var key in _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies) {
+      if(key == idHierarchy)
+        return true;
+    }
+    return false;
+  };
+
+  _cache.isLevelInCache = function (idSchema, idCube, idDimension, idHierarchy, indexLevel) {
+    var levels = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels;
+
+    if (isLevelsListEmpty(idSchema, idCube, idDimension, idHierarchy)) {
+      return false;
+    }
+
+    if (typeof indexLevel === 'string') {
+      for (var level in levels) {
+        if (levels[level].id === indexLevel) {
+          return true;
+        }
+      }
+    } else {
+      return levels[indexLevel] !== undefined;
+    }
+    return false;
+  };
+
+  _cache.isPropertyInCache = function (idSchema, idCube, idDimension, idHierarchy, indexLevel, idProperty) {
+    if (isPropertiesListEmpty(idSchema, idCube, idDimension, idHierarchy, indexLevel))
+      return false;
+
+    var properties = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties;
+    for (var key in properties) {
+      if(key == idProperty)
+        return true;
+    }
+    return false;
+  };
+
+  /**
+  ### Retrieve functions
+
+  The following functions retrieve elements stored in the cache.
+  They must be considered as protected, and should not be called
+  outside of the `analytics.query` namespace.
+  **/
+
+  /**
+  #### *Object* query.cache.**getSchemasFromCache**()
+
+  Retrieve the list of schemas from the cache as a flat map of strings idSchema : caption
+  or {} if the cache is empty.
+
+  ```js
+  {
+    'idSchemaA' : 'captionSchemaA',
+    'idSchemaB' : 'captionSchemaB'
+  }
+  ```
+  **/
+  _cache.getSchemasFromCache = function () {
+    if (this.isCacheEmpty())
+      return {};
+    else
+      return mapWithCaptionToSimpleMap(_metadata.schemas);
+  };
+
+  /**
+  #### *Object* query.cache.**getCubesFromCache**(*string* idSchema)
+
+  Retrieve the list of cubes from the cache as a flat map of strings idCube : caption
+  or {} if the cache is empty.
+  It propagates an error when no schema is found in the cache with the given id.
+
+  ```js
+  {
+    'idCubeA' : 'captionCubeA',
+    'idCubeB' : 'captionCubeB'
+  }
+  ```
+  **/
+  _cache.getCubesFromCache = function (idSchema) {
+    if (isCubesListEmpty(idSchema))
+      return {};
+    else
+      return mapWithCaptionToSimpleMap(_metadata.schemas[idSchema].cubes);
+  };
+
+  /**
+  #### *Object* query.cache.**getDimensionsFromCache**(*string* idSchema, *string* idCube)
+
+  Retrieve the list of dimensions from the cache as a map of strings
+  or {} if the cache is empty.
+  It propagates an error when no schema or cube is found in the cache with the given id.
+
+  ```js
+  {
+    'idDimension' : {
+      caption : 'theCaption',
+      description : 'the description',
+      type : 'theType'
+    },
+    'idDimension2' : {
+      caption : 'otherCaption',
+      description : 'the other description',
+      type : 'otherType'
+    }
+  }
+  ```
+  **/
+  _cache.getDimensionsFromCache = function (idSchema, idCube) {
+    if (isDimensionsListEmpty(idSchema, idCube))
+      return {};
+    else
+      return _metadata.schemas[idSchema].cubes[idCube].dimensions;
+  };
+
+  /**
+  #### *Object* query.cache.**getHierarchiesFromCache**(*string* idSchema, *string* idCube, *string* idDimension)
+
+  Retrieve the list of hierarchies from the cache as a map of strings
+  or {} if the cache is empty.
+  It propagates an error when no schema or cube or dimension is found
+  in the cache with the given id.
+
+  ```js
+  {
+    'idHierarchyA' : 'captionHierarchyA',
+    'idHierarchyB' : 'captionHierarchyB'
+  }
+  ```
+  **/
+  _cache.getHierarchiesFromCache = function(idSchema, idCube, idDimension) {
+    if (isHierarchiesListEmpty(idSchema, idCube, idDimension))
+      return {};
+    else {
+      return mapWithCaptionToSimpleMap(_metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies);
+    }
+  };
+
+  /**
+  #### *Array<string>* query.cache.**getLevelsFromCache**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy)
+
+  Retrieve the list of levels from the cache as an array of strings
+  or [] if the cache is empty.
+  It propagates an error when no schema, cube, dimension or hierarchy is found
+  in the cache with the given id.
+
+  ```js
+  [
+    'captionLevelA',
+    'captionLevelB'
+  ]
+  ```
+  **/
+  _cache.getLevelsFromCache = function(idSchema, idCube, idDimension, idHierarchy) {
+    if (isLevelsListEmpty(idSchema, idCube, idDimension, idHierarchy))
+      return [];
+    else {
+      var out = [];
+      var levels = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels;
+      for (var index=0; index < levels.length; index++) {
+        out[index] = levels[index].caption;
+      }
+      return out;
+    }
+  };
+
+  /**
+  #### *Object* query.cache.**getPropertiesFromCache**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel)
+
+  Retrieve the list of properties from the cache as a map
+  or {} if the cache is empty.
+  It propagates an error when no schema, cube, dimension, hierarchy or level is found
+  in the cache with the given id.
+
+  ```js
+  {
+    'geom' : {
+      'caption' : 'Geom',
+      'description' : 'Geom desc',
+      'type' : 'Geometry'
+    },
+    'surf' : {
+      'caption' : 'Surface',
+      'description' : 'Surface desc',
+      'type' : 'Standard'
+    }
+  }
+  ```
+  **/
+  _cache.getPropertiesFromCache = function(idSchema, idCube, idDimension, idHierarchy, indexLevel) {
+    if (isPropertiesListEmpty(idSchema, idCube, idDimension, idHierarchy, indexLevel))
+      return {};
+    else
+      return _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties;
+  };
+
+  /**
+  ### Storage functions
+
+  The following functions insert elements in the cache.
+  They must be considered as protected, and should not be called
+  outside of the `analytics.query` namespace.
+
+  * query.cache.**cacheSchema**(*string* id, *string* caption)
+  * query.cache.**cacheCube**(*string* idSchema, *string* idCube, *string* caption, *string* description)
+  * query.cache.**cacheDimension**(*string* idSchema, *string* idCube, *string* idDimension, *string* type, *string* caption, *string* description)
+  * query.cache.**cacheHierarchy**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *string* caption, *string* description)
+  * query.cache.**cacheLevel**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *string* idLevel, *string* caption, *string* description)
+  * query.cache.**cacheProperty**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel, *string* idProperty, *string* caption, *string* description, *string* type)
+  * *boolean* query.cache.**getLevelIDFromIndex**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel)
+  **/
+
+  _cache.cacheSchema = function(id, caption) {
+    if( !this.isSchemaInCache(id) ) {
+      if( this.isCacheEmpty() )
+        _metadata.schemas = {};
+
+      _metadata.schemas[id] = { 'caption' : caption };
+    }
+  };
+
+  _cache.cacheCube = function(idSchema, idCube, caption, description) {
+    if (!this.isCubeInCache(idSchema, idCube)) {
+      if (_metadata.schemas[idSchema].cubes === undefined)
+        _metadata.schemas[idSchema].cubes = {};
+
+        _metadata.schemas[idSchema].cubes[idCube] = {'caption' : caption, 'description' : description};
+    }
+  };
+
+  _cache.cacheDimension = function(idSchema, idCube, idDimension, type, caption, description) {
+    if (!isAllowedDimensionType(type))
+      throw 'Cannot cache the dimension '+idDimension+': '+type+' is not a valid dimension type!';
+
+    if (!this.isDimensionInCache(idSchema, idCube, idDimension)) {
+      if (_metadata.schemas[idSchema].cubes[idCube].dimensions === undefined)
+        _metadata.schemas[idSchema].cubes[idCube].dimensions = {};
+
+      var record = {'type' : type, 'caption' : caption, 'description' : description};
+      _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension] = record;
+    }
+  };
+
+  _cache.cacheHierarchy = function(idSchema, idCube, idDimension, idHierarchy, caption, description) {
+    if (!this.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy)) {
+      var dimension = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension];
+      if (dimension.hierarchies === undefined)
+        dimension.hierarchies = {};
+
+      dimension.hierarchies[idHierarchy] = {'caption' : caption, 'description' : description};
+    }
+  };
+
+  _cache.cacheLevel = function(idSchema, idCube, idDimension, idHierarchy, idLevel, caption, description) {
+    if (!_cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, idLevel)) {
+      var hierarchy = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy];
+      if (hierarchy.levels === undefined) {
+        hierarchy.levels = [];
+      }
+
+      hierarchy.levels.push({'id' : idLevel, 'caption' : caption, 'description': description});
+    }
+  };
+
+  _cache.cacheProperty = function(idSchema, idCube, idDimension, idHierarchy, indexLevel, idProperty, caption, description, type) {
+    if (!_cache.isPropertyInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel, idProperty)) {
+      var level = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel];
+      if (level.properties === undefined)
+        level.properties = {};
+
+      level.properties[idProperty] = {'caption' : caption, 'description': description, 'type' : type};
+    }
+  };
+
+  /**
+  ### *boolean* query.cache.**getLevelIDFromIndex**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel)
+
+  Get the level's ID from its index
+  It throws an error when no schema, cube, dimension, hierarchy or level
+  are found in the cache with the given identifiers.
+  **/
+  _cache.getLevelIDFromIndex = function (idSchema, idCube, idDimension, idHierarchy, indexLevel) {
+    if (!_cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
+      throw 'The level you tried to use does not exists in the database!';
+
+    return _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].id;
+  };
+
+
+  /**
+  ### Private functions
+
+  The following functions are all private functions.
+  They must not be used outside of the `analytics.qyery.cache` namespace.
+  **/
+
+  /**
+  ### *Object* **mapWithCaptionToSimpleMap**(*Object* map)
+
+  Transform a deep map `<id:map<caption>>` with a `caption` attribute into
+  a flat map `<id:caption>`. This function is private.
+  **/
+  function mapWithCaptionToSimpleMap (map) {
+    var out = {};
+    for (var key in map) {
+      out[key] = map[key].caption;
+    }
+
+    return out;
+  }
+
+  /**
+  ### *boolean* **isAllowedDimensionType**(*string* type)
+
+  Defines if the given type is a legal type of dimension
+  **/
+  function isAllowedDimensionType (type) {
+    return (type === 'Time') || (type == 'Measure') || (type == 'Standard') || (type == 'Geometry');
+  }
+
+  /**
+  ### *boolean* **isCubesListEmpty**(*string* idSchema)
+
+  Defines if the given cached schema contains cubes.
+  It throws an error when no schema is found in the cache with the given id.
+  **/
+  function isCubesListEmpty (idSchema) {
+    if (!_cache.isSchemaInCache(idSchema))
+      throw 'The schema you tried to use does not exists in the database!';
+
+    var schema = _metadata.schemas[idSchema];
+    return (schema.cubes === undefined) || (Object.keys(schema.cubes).length === 0);
+  }
+
+  /**
+  ### *boolean* **isDimensionListEmpty**(*string* idSchema, *string* idCube)
+
+  Defines if the given cached cube contains dimensions.
+  It throws an error when no schema or cube are found in the cache with
+  the given id.
+  **/
+  function isDimensionsListEmpty (idSchema, idCube) {
+    if (!_cache.isCubeInCache(idSchema, idCube)) {
+      throw 'The cube you tried to use does not exists in the database!';
+    }
+
+    var cube = _metadata.schemas[idSchema].cubes[idCube];
+    return (cube.dimensions === undefined) || (Object.keys(cube.dimensions).length === 0);
+  }
+
+  /**
+  ### *boolean* **isHierarchiesListEmpty**(*string* idSchema, *string* idCube, *string* idDimension)
+
+  Defines if the given cached dimension contains hierarchies.
+  It throws an error when no schema or cube or dimension are found in the cache
+  with the given id.
+  **/
+  function isHierarchiesListEmpty (idSchema, idCube, idDimension) {
+    if (!_cache.isDimensionInCache(idSchema, idCube, idDimension)) {
+      throw 'The dimension you tried to use does not exists in the database!';
+    }
+
+    var dimension = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension];
+    return (dimension.hierarchies === undefined) || (Object.keys(dimension.hierarchies).length === 0);
+  }
+
+  /**
+  ### *boolean* **isLevelsListEmpty**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy)
+
+  Defines if the given cached hierarchy contains levels.
+  It throws an error when no schema, cube, dimension or hierarchy are found in
+  the cache with the given id.
+  **/
+  function isLevelsListEmpty (idSchema, idCube, idDimension, idHierarchy) {
+    if (!_cache.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy)) {
+      throw 'The hierarchy you tried to use does not exists in the database!';
+    }
+
+    var hierarchy = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy];
+    return (hierarchy.levels === undefined) || (hierarchy.levels.length === 0);
+  }
+
+  /**
+  ### *boolean* **isPropertiesListEmpty**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel)
+
+  Defines if the given cached level contains properties.
+  It throws an error when no schema, cube, dimension, hierarchy or level
+  are found in the cache with the given identifiers.
+  **/
+  function isPropertiesListEmpty (idSchema, idCube, idDimension, idHierarchy, indexLevel) {
+    if (!_cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel)) {
+      throw 'The hierarchy you tried to use does not exists in the database!';
+    }
+
+    var properties = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels[indexLevel].properties;
+    return (properties === undefined) || (Object.keys(properties).length === 0);
+  }
+
+_cache._mapWithCaptionToSimpleMap = mapWithCaptionToSimpleMap;
+_cache._isCubesListEmpty = isCubesListEmpty;
+_cache._isDimensionsListEmpty = isDimensionsListEmpty;
+_cache._isHierarchiesListEmpty = isHierarchiesListEmpty;
+_cache._isLevelsListEmpty = isLevelsListEmpty;
+_cache._isPropertiesListEmpty = isPropertiesListEmpty;
+
+
+  return _cache;
+})();
+
 /**
 ## analytics.**data** namespace
 
@@ -2065,6 +1500,9 @@ analytics.data = (function() {
 
   // *analytics.data.dimension[]* list of measures loaded
   var _dimensionsLoaded = [];
+
+  // *Map<string,int>* map of level loaded for each dimension
+  var _levelsLoaded = {};
 
   // *crossfilter* crossfilter object containing the dataset
   var _dataCrossfilter;
@@ -2142,6 +1580,7 @@ analytics.data = (function() {
     // set dimensions to get
     var dimensions = analytics.state.dimensions();
     _dimensionsLoaded = [];
+    _levelsLoaded = {};
     var hierachiesList = [];
 
     for (var index in dimensions) {
@@ -2151,6 +1590,7 @@ analytics.data = (function() {
         var members = dimension.getLastSlice();
         var hierarchy = dimension.hierarchy();
         _dimensionsLoaded.push(dimension);
+        _levelsLoaded[dimension.id()] = dimension.currentLevel();
         hierachiesList.push(hierarchy);
         analytics.query.slice(hierarchy, Object.keys(members));
       }
@@ -2187,9 +1627,11 @@ analytics.data = (function() {
 
     // set dimensions to get
     var dimensions = analytics.state.dimensions();
+    _levelsLoaded = {};
     _dimensionsLoaded = dimensions.slice();
     for (i in dimensions) {
       var dimension = dimensions[i];
+      _levelsLoaded[dimension.id()] = dimension.currentLevel();
       metadata.dimensions[dimension.id()] = {
         "hierarchy" : dimension.hierarchy(),
         "level" : dimension.currentLevel(),
@@ -2256,6 +1698,15 @@ analytics.data = (function() {
 
     for (i in dimensionsToLoad) {
       if (dimensionsLoadedIds.indexOf(dimensionsToLoad[i].id()) < 0) {
+        _data.load();
+        return true;
+      }
+    }
+
+    // if we don't have the right levels
+    var dimensions = analytics.state.dimensions();
+    for (i in dimensions) {
+      if (dimensions[i].currentLevel() != _levelsLoaded[dimensions[i].id()]) {
         _data.load();
         return true;
       }
@@ -2847,7 +2298,7 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   _dimension.removeFilter = function (element) {
     var _filters = _dimension.getLastFilters();
     if (_filters.indexOf(element) >= 0)
-      _filters.splice(_filters.indexOf(element));
+      _filters.splice(_filters.indexOf(element), 1);
     return _dimension;
   };
 
@@ -2870,6 +2321,7 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
       of the values of the dimension with a padding added
   * *this* data.dimension.**freezeDomainAccross**(*data.dimension* otherDimension) : freeze the scale for a filtering across a given dimension
   * *this* data.dimension.**unfreezeDomain**() : unfreeze the scale
+  * *mixed* data.dimension.**hideUnfiltered**(*boolean* hideUnfiltered) : hide or show filtered elements of the dimension
   **/
   _dimension.colors = function () {
     return colorbrewer[_colorPalette][_nbBins];
@@ -2927,10 +2379,11 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   _dimension.values = function (measuresToLoad, measureToUse) {
     // unfrozen: values 1D
     if (_frozenAcross === null) {
-      return _dimension
-        .crossfilterGroup(measuresToLoad)
-        .all()
-        .map(function(d) { return measuresToLoad ? d.value[measureToUse] : d.value; });
+      var data = _dimension.crossfilterGroup(measuresToLoad).all();
+      if (_hideUnfiltered && _dimension.filters().length) {
+        data = data.filter(function (d) { return _dimension.filters().indexOf(d.key) >= 0; });
+      }
+      return data.map(function(d) { return measuresToLoad ? d.value[measureToUse] : d.value; });
     }
     // frozen: values 2D
     else {
@@ -2963,6 +2416,13 @@ analytics.data.dimension = function (id, caption, description, type, hierarchy, 
   _dimension.unfreezeDomain = function () {
     _frozenAcross = null;
     _values = {};
+    return _dimension;
+  };
+
+  var _hideUnfiltered = false;
+  _dimension.hideUnfiltered = function (hideUnfiltered) {
+    if (!arguments.length) return _hideUnfiltered;
+    _hideUnfiltered = hideUnfiltered;
     return _dimension;
   };
 
@@ -3092,9 +2552,9 @@ analytics.state = (function() {
 
       _dimensions = [];
       analytics.data.dimension.nextI = 0;
+      analytics.display.resetChartsOptions();
       dc.filterAll();
       state.initDimensions();
-      dc.filterAll();
       analytics.data.load();
       analytics.display.render();
     }
@@ -3705,47 +3165,42 @@ analytics.display = (function() {
     var measures   = analytics.query.getMesures(schema, cube);
     var geoDimId   = analytics.query.getGeoDimension(schema, cube);
 
-    // TODO extract creation of dimensionsMap to analytics.utils
-    var dimensionsMap = {};
-    dimensions.forEach(function (dimension) {
-      dimensionsMap[dimension.id()] = dimension;
-    });
+    var dimensionsMap = analytics.utils.createMapFromArray(dimensions);
     var measuresMap = {};
     for (var measureId in measures) {
       measuresMap[measureId] = analytics.data.measure(measureId, measures[measureId].caption);
     }
 
-    var sortSelect             = $('#chartparam-sort');
-    var typeSelect             = $('#chartparam-type');
-    var playerTimeoutSelect    = $('#chartparam-playerTimeout');
-    var labelChoiceSelect      = $('#chartparam-labelChoice');
-    var dimensionsSelects      = $('.chartparam-dimension');
-    var measuresSelects        = $('.chartparam-measure');
-    var sortContainer          = sortSelect         .parent().parent();
-    var playerTimeoutContainer = playerTimeoutSelect.parent().parent();
-    var labelChoiceContainer   = labelChoiceSelect  .parent().parent();
-    var dimensionsContainers   = dimensionsSelects  .parent().parent();
-    var measuresContainers     = measuresSelects    .parent().parent();
+    var type              = $('#chartparam-type');
+    var dimensionsSelects = $('.chartparam-dimension');
+    var measuresSelects   = $('.chartparam-measure');
+    var labels            = $('#chartparam-labels');
+    var sort              = $('#chartparam-sort');
+    var topK              = $('#chartparam-topK');
+    var topKMeasure       = $('#chartparam-topKMeasure');
+    var playerTimeout     = $('#chartparam-playerTimeout');
 
-    // hide all
-    sortContainer         .hide();
-    playerTimeoutContainer.hide();
-    labelChoiceContainer  .hide();
-    dimensionsContainers  .hide();
-    measuresContainers    .hide();
+    // get containers & hide by default
+    var dimensionsContainers    = dimensionsSelects.parent().parent().hide();
+    var measuresContainers      = measuresSelects  .parent().parent().hide();
+    var labelsContainer         = labels           .parent().parent().hide();
+    var sortContainer           = sort             .parent().parent().hide();
+    var topKContainer           = topK             .parent().parent().hide();
+    var topKMeasureContainer    = topKMeasure      .parent().parent().hide();
+    var playerTimeoutContainer  = playerTimeout    .parent().parent().hide();
 
     // add chart types once
-    if (!typeSelect.children('option').length) {
+    if (!type.children('option').length) {
       for (var chartType in analytics.charts) {
         if (chartType != 'chart' && typeof analytics.charts[chartType].params != 'undefined' && analytics.charts[chartType].params.displayParams === true) {
           var caption = analytics.csts.txts.charts[chartType] ? analytics.csts.txts.charts[chartType] : chartType;
-          typeSelect.append('<option value="'+chartType+'">'+caption+'</option>');
+          type.append('<option value="'+chartType+'">'+caption+'</option>');
         }
       }
     }
 
     // Add dimensions & measures to selects
-    dimensionsSelects.empty().append('<option value=""></option>');
+    dimensionsSelects.empty();
     measuresSelects  .empty().append('<option value=""></option>');
 
     var dimension, measure;
@@ -3757,10 +3212,12 @@ analytics.display = (function() {
     }
 
     // autoset infos
-    typeSelect.val(chart.type());
-    sortSelect.val(options.sort);
-    playerTimeoutSelect.val(options.playerTimeout);
-    labelChoiceSelect.prop("checked", options.labels === false ? "" : "checked");
+    type.val(chart.type());
+    sort.val(options.sort);
+    playerTimeout.val(options.playerTimeout);
+    labels.prop("checked", options.labels === false ? "" : "checked");
+    topK.val(options.topK === Infinity ? "0" : options.topK);
+
     dimensionsSelects.each(function(i, el) {
       var dimension = chart.dimensions()[i];
       if (dimension)
@@ -3771,14 +3228,17 @@ analytics.display = (function() {
       if (measure)
         $(el).val(measure.id());
     });
+    topKMeasure.val(options.topKMeasure ? options.topKMeasure.id() : "");
 
     // update form dynamically depending on type
     function updateForm(chartType, duration) {
+      function showOrHide(container, bool) {
+        if (bool) container.slideDown(duration);
+        else      container.slideUp(duration);
+      }
+
       var nbDims            = analytics.charts[chartType].params.nbDimensionsMax;
       var nbMes             = analytics.charts[chartType].params.nbExtraMeasuresMax;
-      var showSort          = analytics.charts[chartType].options.sort !== null;
-      var showPlayerTimeout = analytics.charts[chartType].params.displayPlay;
-      var showLabelChoice   = analytics.charts[chartType].options.labels !== null;
 
       // show dimensions & measures
       dimensionsContainers.slice(0, nbDims).slideDown(duration);
@@ -3786,21 +3246,12 @@ analytics.display = (function() {
       dimensionsContainers.slice(nbDims).slideUp(duration);
       measuresContainers  .slice(nbMes) .slideUp(duration);
 
-      // show sort container
-      if (showSort)
-        sortContainer.slideDown(duration);
-      else
-        sortContainer.slideUp(duration);
-
-      if (showPlayerTimeout)
-        playerTimeoutContainer.slideDown(duration);
-      else
-        playerTimeoutContainer.slideUp(duration);
-
-      if (showLabelChoice)
-        labelChoiceContainer.slideDown(duration);
-      else
-        labelChoiceContainer.slideUp(duration);
+      // show fields
+      showOrHide(playerTimeoutContainer,  analytics.charts[chartType].params.displayPlay);
+      showOrHide(sortContainer,           analytics.charts[chartType].options.sort           !== null);
+      showOrHide(labelsContainer,         analytics.charts[chartType].options.labels         !== null);
+      showOrHide(topKContainer,           analytics.charts[chartType].options.topK           !== null);
+      showOrHide(topKMeasureContainer,    analytics.charts[chartType].options.topKMeasure    !== null);
 
       // disable impossibles dimensions & measures
       dimensionsSelects.children('option').removeAttr('disabled');
@@ -3814,21 +3265,23 @@ analytics.display = (function() {
           measuresSelects.children('option[value="'+measuresMap[measure].id()+'"]').attr('disabled', 'disabled');
       }
     }
-    updateForm(typeSelect.val(), 0);
+    updateForm(type.val(), 0);
 
-    typeSelect.change(function() { updateForm($(this).val(), 400); });
+    type.change(function() { updateForm($(this).val(), 400); });
 
     // set callback for save
     $('#chartparams-set').unbind('click').click(function() {
       $('#chartparams').modal('hide');
 
       var options = {
-        dimensions    : [],
-        measures      : [],
-        sort          : sortSelect.val(),
-        type          : typeSelect.val(),
-        labels        : labelChoiceSelect.prop("checked"),
-        playerTimeout : playerTimeoutSelect.val(),
+        dimensions     : [],
+        measures       : [],
+        sort           : sort.val(),
+        type           : type.val(),
+        topK           : topK.val(),
+        topKMeasure    : measuresMap[topKMeasure.val()],
+        labels         : labels.prop("checked"),
+        playerTimeout  : playerTimeout.val(),
       };
       dimensionsSelects.each(function(i, el) {
         var dimension = dimensionsMap[$(el).val()];
@@ -3886,6 +3339,11 @@ analytics.display = (function() {
       new PNotify('Invalid axes selected');
       return;
     }
+    if (analytics.charts[options.type].options.topKMeasure !== null &&
+        analytics.utils.indexOf(options.measures, options.topKMeasure) < 0) {
+      new PNotify('Invalid measure for top k (it is not used on the chart)');
+      return;
+    }
 
     // chart type change = new chart
     if (chart.type() != options.type) {
@@ -3894,36 +3352,40 @@ analytics.display = (function() {
     }
 
     // new dimensions
-    if (!arraysEquals(options.dimensions, chart.dimensions())) {
+    if (!analytics.utils.arraysEquals(options.dimensions, chart.dimensions())) {
       chart.dimensions(options.dimensions);
       doRedraw = true;
       doFilter = true;
     }
 
     // new measures
-    if (!arraysEquals(options.measures, chart.extraMeasures())) {
+    if (!analytics.utils.arraysEquals(options.measures, chart.extraMeasures())) {
       chart.extraMeasures(options.measures);
       doRedraw = true;
       loadData = true;
     }
 
-    // sort order allowed & changed
-    if (analytics.charts[options.type].options.sort !== null && chart.options().sort != options.sort) {
-      chart.setOption("sort", options.sort);
-      doRedraw = true;
+    // set various options
+    function setOption(option, doRenderRedraw, regulate, param) {
+      if (param && !analytics.charts[options.type].params[param] ||
+         !param && analytics.charts[options.type].options[option] === null ||
+          chart.options()[option] == options[option])
+        return false;
+      if (regulate)
+        options[option] = regulate(options[option]);
+      chart.setOption(option, options[option]);
+      if (doRenderRedraw == "render")
+        doRender = true;
+      else if (doRenderRedraw == "redraw")
+        doRedraw = true;
+      return true;
     }
 
-    // show labels
-    if (analytics.charts[options.type].options.labels !== null && chart.options().labels != options.labels) {
-      chart.setOption("labels", options.labels);
-      doRender = true;
-    }
-
-    if (analytics.charts[options.type].params.displayPlay && chart.options().playerTimeout != options.playerTimeout) {
-      if (options.playerTimeout < 50)
-        options.playerTimeout = 50;
-      chart.setOption("playerTimeout", options.playerTimeout);
-    }
+    setOption("sort", "redraw");
+    setOption("labels", "render");
+    setOption("playerTimeout", "", function(d) { d = parseInt(d); return (isNaN(d) || d < 50) ? 50 : d; }, "displayPlay");
+    setOption("topK", "redraw", function(d) { d = parseInt(d); return (isNaN(d) || d <= 0) ? Infinity : d; });
+    setOption("topKMeasure", "redraw");
 
     // Update display
     if (loadData) {
@@ -3988,6 +3450,7 @@ analytics.display = (function() {
     setColor(dimension.colorPalette());
     $('#dimparam-colors-nb').val(dimension.nbBins());
     $('#dimparam-scale').val(dimension.scaleType());
+    $('#dimparam-hideUnfiltered').prop('checked', dimension.hideUnfiltered() ? 'checked' : '');
 
     // set callback for save
     $('#dimparams-set').unbind('click').click(function() {
@@ -3999,9 +3462,10 @@ analytics.display = (function() {
       var nb = Math.min(Math.max(min, $('#dimparam-colors-nb').val()), max);
 
       var options = {
-        palette : color,
-        number  : nb,
-        scale   : $('#dimparam-scale').val(),
+        palette        : color,
+        number         : nb,
+        hideUnfiltered : $('#dimparam-hideUnfiltered').prop("checked"),
+        scale          : $('#dimparam-scale').val(),
       };
       updateDimension(dimension, options);
     });
@@ -4014,6 +3478,19 @@ analytics.display = (function() {
     dimension.colorPalette(options.palette);
     dimension.nbBins(options.number);
     dimension.scaleType(options.scale);
+
+    dimension.hideUnfiltered(options.hideUnfiltered);
+    var filterCharts;
+    if (options.hideUnfiltered && !dimension.filters().length) {
+      dimension.filters(Object.keys(dimension.getLastSlice()));
+      filterCharts = true;
+    }
+
+    display.getChartsUsingDimension(dimension).forEach(function (chart) {
+      if (filterCharts)
+        filterChartAsDimensionState(chart);
+      chart.setOption('hideUnfiltered', options.hideUnfiltered);
+    });
 
     display.redraw();
   }
@@ -4032,6 +3509,12 @@ analytics.display = (function() {
       chart.elasticAxes(true);
     });
     display.render();
+  };
+
+  display.resetChartsOptions = function () {
+    display.charts().forEach(function (chart) {
+      chart.resetOptions();
+    });
   };
 
   /**
@@ -4180,6 +3663,12 @@ analytics.display = (function() {
         display.resize();
       }
     });
+
+    // prevent ctrl + zoom on the page
+    d3.select("body")
+    .on('mousewheel',     function () { if (d3.event.ctrlKey) { d3.event.preventDefault(); }})
+    .on('DOMMouseScroll', function () { if (d3.event.ctrlKey) { d3.event.preventDefault(); }})
+    .on('wheel',          function () { if (d3.event.ctrlKey) { d3.event.preventDefault(); }});
   }
 
   display.init = function () {
@@ -4307,18 +3796,6 @@ analytics.display = (function() {
     }
   };
 
-  // compare two arrays of objects having .equals() method
-  function arraysEquals(array1, array2) {
-    if (array1.length != array2.length)
-      return false;
-
-    for (var i in array1)
-      if (!array1[i].equals(array2[i]))
-        return false;
-
-    return true;
-  }
-
 display._nextChartId = function () { return _nextChartId; };
 display._charts = function () { return _charts; };
 display._resizableColumns = function () { return _resizableColumns; };
@@ -4335,7 +3812,6 @@ display.initButtons = initButtons;
 display.initResize = initResize;
 display.resize = resize;
 display.rebuild = rebuild;
-display.arraysEquals = arraysEquals;
 
 display.reset = function () {
   display.charts().forEach(function(chart) {
@@ -4570,8 +4046,10 @@ analytics.display.factSelector = (function () {
 
       element.list = $('<ul '+listClass+'></ul>');
 
-      var useCallback = function() {
-          callback($(this).attr('data-id')); return false;
+      var useCallback = function(e) {
+          callback($(this).attr('data-id'));
+          e.preventDefault();
+          return true;
       };
 
       for (var elID in element.data) {
@@ -4944,6 +4422,13 @@ analytics.charts.chart = (function () {
       return _chart;
     };
 
+    _chart.resetOptions = function () {
+      var options = analytics.charts[_chart.type()].options;
+      for (var option in options) {
+        _chart.setOption(option, options[option]);
+      }
+    };
+
     _chart.player = function () {
       return _player;
     };
@@ -5113,7 +4598,7 @@ analytics.charts.chart = (function () {
       // color chart
       if (typeof _chart.element().colors == 'function') {
         _chart.element()
-          .colorCalculator(function (d) { return d.value ? _chart.element().colors()(d.value) : '#ccc'; });
+          .colorCalculator(function (d) { return isNaN(d.value) ? '#ccc' : _chart.element().colors()(d.value); });
       }
     }
 
@@ -5165,6 +4650,11 @@ analytics.charts.chart = (function () {
       // labels
       if (_chart.options().labels !== null) {
         _chart.element().renderLabel(_chart.options().labels);
+      }
+
+      // hide unfiltered
+      if (_chart.options().hideUnfiltered !== null) {
+        _chart.element().dataHideUnfiltered(_chart.options().hideUnfiltered);
       }
     }
 
@@ -5406,6 +4896,9 @@ analytics.charts.chart = (function () {
   charts_chart_nostatic.options = {
     sort            : null,
     labels          : null,
+    hideUnfiltered  : false,
+    topK            : null,
+    topKMeasure     : null,
     playerTimeout   : 1000,
     height          : 300,
     heightReference : "px"
@@ -5434,7 +4927,7 @@ analytics.charts.chart = (function () {
       var _chart = chartConstructor(selector, dimensions);
       // add as non static all static variables & functions
       _chart._params                          = chartConstructor.params;
-      _chart._options                         = JSON.parse(JSON.stringify(chartConstructor.options));
+      _chart._options                         = analytics.utils.cloneObject(chartConstructor.options);
       _chart.isPossibleDimension              = _newChartConstructor.isPossibleDimension;
       _chart.isPossibleExtraMeasure           = _newChartConstructor.isPossibleExtraMeasure;
       _chart.arePossibleDimensions            = _newChartConstructor.arePossibleDimensions;
@@ -5482,14 +4975,14 @@ analytics.charts.chart = (function () {
     // coy static maps options & params that are not overriden
     var key;
     if (typeof chartConstructor.params == 'undefined')
-      chartConstructor.params = JSON.parse(JSON.stringify(charts_chart_nostatic.params));
+      chartConstructor.params = analytics.utils.cloneObject(charts_chart_nostatic.params);
     else
       for (key in charts_chart_nostatic.params)
         if (typeof chartConstructor.params[key] == 'undefined')
           chartConstructor.params[key] = charts_chart_nostatic.params[key];
 
     if (typeof chartConstructor.options == 'undefined')
-      chartConstructor.options = JSON.parse(JSON.stringify(charts_chart_nostatic.options));
+      chartConstructor.options = analytics.utils.cloneObject(charts_chart_nostatic.options);
     else
       for (key in charts_chart_nostatic.options)
         if (typeof chartConstructor.options[key] == 'undefined')
@@ -5626,7 +5119,8 @@ analytics.charts.map = (function () {
 
   map.options = {
     sort            : null,
-    height          : 0.7,
+    height          : 0.65,
+    hideUnfiltered  : null,
     heightReference : 'columnHeightRatio'
   };
 
@@ -5702,10 +5196,8 @@ analytics.charts.bar = (function () {
         .margins({top: 10, right: 10, bottom: 110, left: 40})
         .renderlet(function (chart) {
                     chart.selectAll("g.x text")
-                      .attr('dx', '-6')
-                      .attr('dy', '0')
-                      .style('text-anchor', 'end')
-                      .attr('transform', "rotate(-50)");
+                      .attr('transform', "rotate(-50) translate(-6 0)")
+                      .style('text-anchor', 'end');
                 })
         .transitionDuration(500)
         .centerBar(false)
@@ -5955,7 +5447,7 @@ analytics.charts.wordcloudWithLegend = (function () {
     };
 
     _chart._initContainerSpecific = function () {
-      $(_chart.selector()).append('<div class="wordcloud-legend"></div><div class="btn-dimparams-container"><span class="btn-dimparams btn btn-xs btn-default"><i class="fa fa-nomargin fa-cog"></i></span></div>');
+      $(_chart.selector()).append('<div class="wordcloud-hidden-info"></div><div class="wordcloud-legend"></div><div class="btn-dimparams-container"><span class="btn-dimparams btn btn-xs btn-default"><i class="fa fa-nomargin fa-cog"></i></span></div>');
 
       $(_chart.selector() + ' .btn-dimparams').click(function() {
         analytics.display._displayDimensionParamsForm(_chart.dimensions()[0]);
@@ -5967,6 +5459,11 @@ analytics.charts.wordcloudWithLegend = (function () {
         $(_chart.selector() + ' .chart-title').prepend('<i class="fa fa-chevron-right"></i>');
       else
         $(_chart.selector() + ' .chart-title').prepend('<i class="fa fa-chevron-down"></i>');
+
+      if (_chart.dimensions()[0].hideUnfiltered())
+        $(_chart.selector() + ' .wordcloud-hidden-info').addClass('alert alert-warning').html('<i class="fa fa-warning"></i>' + analytics.csts.txts.hideUnfilteredWarning);
+      else
+        $(_chart.selector() + ' .wordcloud-hidden-info').removeClass('alert alert-warning').empty();
     };
 
     return _chart;
@@ -5974,6 +5471,10 @@ analytics.charts.wordcloudWithLegend = (function () {
 
   wordcloudChart.params = {
     displayParams : false
+  };
+
+  wordcloudChart.options = {
+    hideUnfiltered : null
   };
 
   return analytics.charts.chart.extend(wordcloudChart);

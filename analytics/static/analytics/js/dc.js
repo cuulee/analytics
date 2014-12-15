@@ -825,10 +825,72 @@ dc.baseMixin = function (_chart) {
     **/
     _chart.data = function (d) {
         if (!arguments.length) {
-            return _data.call(_chart, _group);
+            var data = _data.call(_chart, _group);
+            if (_chart.dataHideUnfiltered())
+                data = _chart._dataHideUnfiltered(data);
+            if (_chart.dataFilterTop() > 0 && _chart.dataFilterTop() < Infinity)
+                data = _chart._dataFilterTop(data);
+            return data;
         }
         _data = d3.functor(d);
         _chart.expireCache();
+        return _chart;
+    };
+
+    _chart._dataHideUnfiltered = function(data) {
+        if (_filters.length)
+            return data.filter(function(d) { return d.key === undefined || _filters.indexOf(d.key) >= 0; });
+        else
+            return data;
+    };
+
+    _chart._dataFilterTop = function(data) {
+        try {
+            var dataTemp = data.slice(0).sort(function(a, b) { return _dataFilterTopAccessor(b) - _dataFilterTopAccessor(a); });
+            return dataTemp.slice(0, _dataFilterTop);
+        }
+        catch (e) {
+            return data;
+        }
+    };
+
+    /**
+    #### .dataHideUnfiltered([boolean])
+    Indicates if we want to hide unfiltered elements of the dimension from the chart.
+
+    **Default:** false.
+    **/
+    var _dataHideUnfiltered = false;
+    _chart.dataHideUnfiltered = function (_) {
+        if (!arguments.length) return _dataHideUnfiltered;
+        _dataHideUnfiltered = _;
+        return _chart;
+    };
+
+    /**
+    #### .dataFilterTop([k])
+    Set the number *k* of elements we will show on the chart. It looks like the cap mixin but other
+    elements are not aggregated in an "Others" group, they are hidden.
+
+    **Default:** Infinity.
+    **/
+    var _dataFilterTop = Infinity;
+    _chart.dataFilterTop = function (k) {
+        if (!arguments.length) return _dataFilterTop;
+        _dataFilterTop = k;
+        return _chart;
+    };
+
+    /**
+    #### ._dataFilterTopAccessor([function])
+    Function to access the value used for the `.dataFilterTop` function.
+
+    **Default:** `function(d) { return _chart.valueAccessor()(d); };`
+    **/
+    var _dataFilterTopAccessor = function(d) { return _chart.valueAccessor()(d); };
+    _chart.dataFilterTopAccessor = function (_) {
+        if (!arguments.length) return _dataFilterTopAccessor;
+        _dataFilterTopAccessor = _;
         return _chart;
     };
 
@@ -3380,6 +3442,23 @@ dc.stackMixin = function (_chart) {
         return layers.length ? _chart.stackLayout()(layers) : [];
     });
 
+    _chart._dataHideUnfiltered = function(data) {
+        var filters = _chart.filters();
+        if (!filters.length)
+            return data;
+        else {
+            return data.map(function(layer) {
+                layer.values = layer.values.filter(function(d) { return d.data.key === undefined || filters.indexOf(d.data.key) >= 0; });
+                return layer;
+            });
+        }
+    };
+
+    // TODO
+    _chart._dataFilterTop = function(data) {
+        return data;
+    };
+
     _chart._ordinalXDomain = function () {
         return flattenStack().map(dc.pluck('x'));
     };
@@ -3477,6 +3556,11 @@ dc.capMixin = function (_chart) {
             return topRows;
         }
     });
+
+    // Disabled for cap mixin
+    _chart._dataFilterTop = function(data) {
+        return data;
+    };
 
     /**
     #### .cap([count])
@@ -5370,14 +5454,38 @@ dc.dataTable = function (parent, chartGroup) {
 
     function nestEntries() {
         var entries = _chart.dimension().top(_size);
-        
-        return d3.nest()
+
+        var data = d3.nest()
             .key(_chart.group())
             .sortKeys(_order)
             .entries(entries.sort(function (a, b) {
                 return _order(_sortBy(a), _sortBy(b));
             }));
+
+        if (_chart.dataHideUnfiltered())
+            data = _chart._dataHideUnfiltered(data);
+        if (_chart.dataFilterTop() > 0 && _chart.dataFilterTop() < Infinity)
+            data = _chart._dataFilterTop(data);
+
+        return data;
     }
+
+    _chart._dataHideUnfiltered = function(data) {
+        var filters = _chart.filters();
+        if (!filters.length)
+            return data;
+        else {
+            return data.map(function(layer) {
+                layer.values = layer.values.filter(function(d) { return d.key === undefined || filters.indexOf(d.key) >= 0; });
+                return layer;
+            });
+        }
+    };
+
+    // TODO
+    _chart._dataFilterTop = function(data) {
+        return data;
+    };
 
     function renderRows(groups) {
         var rows = groups.order()
@@ -6746,7 +6854,9 @@ dc.geoChoroplethChart = function (parent, chartGroup) {
                     return _chart.onClick(d, layerIndex);
                 } else {
                     if (!d3.event.defaultPrevented) {
+                      console.log(_geoJsons.length - 1 - layerIndex);
                           _chart._zoomOut(Math.max(0, _geoJsons.length - 1 - layerIndex));
+                          console.log(d, "clicked");
                           _chart._zoomIn(d, {});
                     }
                 }
@@ -8340,6 +8450,14 @@ dc.numberDisplay = function (parent, chartGroup) {
         var valObj = group.value ? group.value() : group.top(1)[0];
         return _chart.valueAccessor()(valObj);
     });
+
+    _chart._dataHideUnfiltered = function(data) {
+        return data;
+    };
+
+    _chart._dataFilterTop = function(data) {
+        return data;
+    };
 
     _chart.transitionDuration(250); // good default
 

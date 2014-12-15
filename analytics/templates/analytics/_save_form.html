@@ -12,15 +12,14 @@
       <div class="control-group">
         <label class="control-label"><strong>{% trans "Title" %}:</strong></label>
         <div class="controls">
-          <input type="text" name="title" class="user-select" id="title-save">
-          </input>
+          <input type="text" name="title" class="user-select" id="title-save" value="{% if analysis %}{{ analysis.title }}{% endif %}"/>
         </div>
       </div>
 
       <div class="control-group">
         <label class="control-label"><strong>{% trans "Abstract" %}:</strong></label>
         <div class="controls">
-          <textarea name="abstract" rows="8" id="abstract-save"></textarea>
+          <textarea name="abstract" rows="8" id="abstract-save">{% if analysis %}{{ analysis.abstract }}{% endif %}</textarea>
         </div>
       </div>
     </div>

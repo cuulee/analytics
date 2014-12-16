@@ -55,7 +55,7 @@ def new_analysis(request, template='analytics/analysis_view.html'):
         config = analysis_obj.data
         return render(request, template, {'config': config})
 
-    return render(request, template, {'fixtures': settings.FIXTURES, 'csts': settings.CSTS})
+    return render(request, template, {'settings': settings})
 
 def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
     """ The view that show the analytics main viewer. """
@@ -64,8 +64,7 @@ def analysis_view(request, analysisid, template='analytics/analysis_view.html'):
 
         return render(request, template, {
             'analysis' : analysis_obj,
-            'fixtures': settings.FIXTURES,
-            'csts': settings.CSTS
+            'settings': settings,
         })
     except PermissionDenied:
         if not request.user.is_authenticated():

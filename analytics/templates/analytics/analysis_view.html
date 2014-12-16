@@ -57,24 +57,36 @@
 {% block footer %}{% endblock %}
 
 {% block extra_script %}
-<script src="{{ STATIC_URL }}analytics/js/d3.v3.min.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}analytics/js/crossfilter.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/lib/d3.v3.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/lib/crossfilter.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/lib/wicket.min.js" type="application/javascript" charset="utf-8"></script>
+<script src="{{ STATIC_URL }}analytics/js/lib/pnotify.custom.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/lib/colorbrewer.v1.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/lib/bootbox.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/lib/simple_statistics.min.js" type="application/javascript"></script>
+
+{% if settings.JS_TESTING %}
+<script src="{{ STATIC_URL }}analytics/js/save.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
+
+<script src="{{ STATIC_URL }}analytics/js/crossfilter-server.test.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/dc.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/analytics.test.js" type="application/javascript" charset="utf-8"></script>
+{% else %}
+<script src="{{ STATIC_URL }}analytics/js/save.min.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/jquery.resizableColumns.min.js" type="application/javascript"></script>
+
 <script src="{{ STATIC_URL }}analytics/js/crossfilter-server.min.js" type="application/javascript"></script>
 <script src="{{ STATIC_URL }}analytics/js/dc.min.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}analytics/js/wicket.js" type="application/javascript" charset="utf-8"></script>
-<script src="{{ STATIC_URL }}/analytics/js/Save.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/pnotify.custom.min.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/colorbrewer.v1.min.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/jquery.resizableColumns.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/bootbox.min.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/simple_statistics.js" type="application/javascript"></script>
-{% if fixtures %}
-<script src="{{ STATIC_URL }}/analytics/js/helpers/cube.js" type="application/javascript"></script>
-<script src="{{ STATIC_URL }}/analytics/js/helpers/fixtures.js" type="application/javascript"></script>
-{% else %}
-<script src="{{ STATIC_URL }}/analytics/js/QueryAPI.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/analytics.min.js" type="application/javascript" charset="utf-8"></script>
 {% endif %}
-<script src="{{ STATIC_URL }}/analytics/js/analytics.min.js" type="application/javascript" charset="utf-8"></script>
+
+{% if settings.FIXTURES %}
+<script src="{{ STATIC_URL }}analytics/js/helpers/cube.js" type="application/javascript"></script>
+<script src="{{ STATIC_URL }}analytics/js/helpers/fixtures.js" type="application/javascript"></script>
+{% else %}
+<script src="{{ STATIC_URL }}analytics/js/QueryAPI.js" type="application/javascript"></script>
+{% endif %}
 <script>
 
   Save.init('#modal_analysis', '#title-save', '#abstract-save', '#modal_analysis_login');
@@ -100,8 +112,8 @@
     });
   {% endif %}
 
-  analytics.setCsts({{ csts|safe }});
-  {% if fixtures %}
+  analytics.setCsts({{ settings.CSTS|safe }});
+  {% if settings.FIXTURES %}
     analytics.init(generateAPI([c]), state);
   {% else %}
     analytics.init(new QueryAPI(), state);

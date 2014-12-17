@@ -2753,14 +2753,15 @@ analytics.state = (function() {
     // list dimensions
     out.dimensions = analytics.state.dimensions().map(function (dimension) {
       return {
-        id           : dimension.id(),
-        hierarchy    : dimension.hierarchy(),
-        filters      : dimension.filters(),
-        properties   : dimension.properties().map(function (property) { return property.id(); }),
-        membersStack : dimension.membersStack().map(function (members) { return Object.keys(members); }),
-        scaleType    : dimension.scaleType(),
-        colorPalette : dimension.colorPalette(),
-        nbBins       : dimension.nbBins()
+        id             : dimension.id(),
+        hierarchy      : dimension.hierarchy(),
+        filters        : dimension.filters(),
+        properties     : dimension.properties().map(function (property) { return property.id(); }),
+        membersStack   : dimension.membersStack().map(function (members) { return Object.keys(members); }),
+        scaleType      : dimension.scaleType(),
+        colorPalette   : dimension.colorPalette(),
+        nbBins         : dimension.nbBins(),
+        hideUnfiltered : dimension.hideUnfiltered()
       };
     });
 
@@ -2829,6 +2830,7 @@ analytics.state = (function() {
         dimensionObj.scaleType(dimension.scaleType);
         dimensionObj.colorPalette(dimension.colorPalette);
         dimensionObj.nbBins(dimension.nbBins);
+        dimensionObj.hideUnfiltered(dimension.hideUnfiltered);
 
         _dimensions.push(dimensionObj);
         dimensionsMap[dimensionObj.id()] = dimensionObj;

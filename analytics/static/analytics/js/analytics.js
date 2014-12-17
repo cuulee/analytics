@@ -212,21 +212,6 @@ analytics.query = (function() {
   }
 
   /**
-  ### *boolean* **getLevelIDFromIndex**(*string* idSchema, *string* idCube, *string* idDimension, *string* idHierarchy, *integer* indexLevel)
-
-  Get the level's ID from its index.
-  It throws an error when no schema, cube, dimension, hierarchy or level
-  are found in the database with the given identifiers.
-  **/
-  function getLevelIDFromIndex (idSchema, idCube, idDimension, idHierarchy, indexLevel) {
-    var levels = Query.getLevels(idSchema, idCube, idDimension, idHierarchy);
-    if (typeof levels[indexLevel] == 'undefined')
-      throw 'The level you tried to use does not exists in the database!';
-
-    return levels[indexLevel];
-  }
-
-  /**
   ### *string* **getMeasureDimension**(*string* idSchema, *string* idCube)
 
   Get the id of the measure dimension.
@@ -433,6 +418,24 @@ analytics.query = (function() {
     Get a list of cubes and for each the measures of this cube.
     It can throw an error is the schema, the cube or the *Measure* dimension
     is not found in the database.
+
+    ```js
+    {
+      'C' : {
+        caption : 'Le cube',
+        measures : {
+          'E' : {
+            caption : 'Export',
+            description : 'Export desc'
+          },
+          'I' : {
+            caption : 'Import',
+            description : 'Import desc'
+          }
+        }
+      }
+    }
+    ```
     **/
     getCubesAndMeasures : function (idSchema) {
       var out = {};
@@ -459,8 +462,9 @@ analytics.query = (function() {
 
     ```js
     'idDimension' : {
-      'caption' : 'theCaption',
-      'type' : 'theType'
+      caption : 'theCaption',
+      type : 'theType',
+      description : 'the desc'
     }
     ```
     **/
@@ -641,13 +645,15 @@ analytics.query = (function() {
     {
      'FR' : // member key
        {
-         'caption' : 'France',
-         'geometry' : {<geoJSONofFrance>}, // property geometry value
+         caption : 'France',
+         description : 'France description',
+         Geom : '<geoJSONofFrance>', // property geometry value (string|object)
        },
      'BE' :
        {
-         'caption' : 'Belgium',
-         'geometry' : {<geoJSONofBelgium>}
+         caption : 'Belgium',
+         description : 'Belgium description',
+         Geom : '<geoJSONofBelgium>'
        },
        ...
     }
@@ -719,13 +725,15 @@ analytics.query = (function() {
     {
      'FR' : // member key
        {
-         'caption' : 'France',
-         'geometry' : {<geoJSONofFrance>} // property geometry value
+         caption : 'France',
+         description : 'France description',
+         Geom : {<geoJSONofFrance>} // property geometry value
        },
      'BE' :
        {
-         'caption' : 'Belgium',
-         'geometry' : {<geoJSONofBelgium>}
+         caption : 'Belgium',
+         description : 'Belgium description',
+         Geom : {<geoJSONofBelgium>}
        },
        ...
     }
@@ -736,16 +744,21 @@ analytics.query = (function() {
       if(typeof membersIds != 'object')
         throw new Error("You provided an illegal parameter. Array expected");
 
-      if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel)) {
+      loadToDimensions(idSchema, idCube, idDimension);
+
+      if (!this.cache.isHierarchyInCache(idSchema, idCube, idDimension, idHierarchy))
+        this.getHierarchies(idSchema, idCube, idDimension);
+
+      if (!this.cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel)) {
         this.getLevels(idSchema, idCube, idDimension, idHierarchy);
-        if (!this.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
+        if (!this.cache.isLevelInCache(idSchema, idCube, idDimension, idHierarchy, indexLevel))
           throw new Query.LevelNotInDatabaseError();
       }
 
       // Default values for parameters
       withProperties = typeof withProperties !== 'undefined' ? withProperties : false;
 
-      var idLevel = this.getLevelIDFromIndex(idSchema, idCube, idDimension, idHierarchy, indexLevel);
+      var idLevel = this.cache.getLevelIDFromIndex(idSchema, idCube, idDimension, idHierarchy, indexLevel);
 
       var reply = this.queryAPI().explore(new Array(idSchema, idCube, idDimension, idHierarchy, idLevel, membersIds), withProperties, 0);
       checkAPIResponse(reply);
@@ -782,13 +795,15 @@ analytics.query = (function() {
 
     ```js
     {
-      "geom" : {
-        "caption" : "Geom",
-        "type" : "Geometry"
+      'Geom' : {
+        caption : 'Geom',
+        description : 'Geom desc',
+        type : 'Geometry'
       },
-      "surf" : {
-        "caption" : "Surface",
-        "type" : "Standard"
+      'surf' : {
+        caption : 'Surface',
+        description : 'Geom desc',
+        type : 'Standard'
       }
     }
     ```
@@ -1074,11 +1089,11 @@ analytics.query.cache = (function () {
   };
 
   _cache.isLevelInCache = function (idSchema, idCube, idDimension, idHierarchy, indexLevel) {
-    var levels = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels;
-
     if (isLevelsListEmpty(idSchema, idCube, idDimension, idHierarchy)) {
       return false;
     }
+
+    var levels = _metadata.schemas[idSchema].cubes[idCube].dimensions[idDimension].hierarchies[idHierarchy].levels;
 
     if (typeof indexLevel === 'string') {
       for (var level in levels) {
@@ -5186,8 +5201,43 @@ analytics.charts.timeline = (function () {
     var superInitChartSpecific = _chart._initChartSpecific;
     _chart._initChartSpecific = function () {
       superInitChartSpecific();
-      _chart.element().margins({top: 10, right: 10, bottom: 58, left: 40});
+      _chart.element().margins({top: 10, right: 10, bottom: 100, left: 40});
     };
+
+    var superUpdateChartSpecific = _chart._updateChartSpecific;
+    _chart._updateChartSpecific = function () {
+      superUpdateChartSpecific();
+      var captions = getCaptions();
+      var format = d3.format(".3s");
+
+      _chart.element()
+        .title(function (d) {
+          var key = d.key ? d.key : d.data.key;
+          if (captions[key] === undefined) return (d.value ? format(d.value) : '');
+          return captions[key] + "\nValue: " + (d.value ? format(d.value) : 0); // + "[unit]";
+        });
+      _chart.element().xAxis().tickFormat(function(d) { return captions[d];});
+    };
+
+    function getCaptions () {
+      var dimension = _chart.dimensions()[0];
+      var metadatas = dimension.membersStack();
+      var previousLevelCaptions = {};
+      var captions = {};
+
+      var i, key, parent;
+      for (i = 0; i < metadatas.length; i++) {
+        captions = {};
+        for (key in metadatas[i]) {
+          parent = metadatas[i][key].parent;
+          captions[key] = previousLevelCaptions[parent] ? previousLevelCaptions[parent] + " - " : "";
+          captions[key] += metadatas[i][key].caption;
+        }
+        previousLevelCaptions = captions;
+      }
+
+      return captions;
+    }
 
     return _chart;
   };
@@ -5454,9 +5504,9 @@ analytics.charts.bubble = (function () {
         .valueAccessor(function (p)       { return p.value[measures[1].id()]; })
         .radiusValueAccessor(function (p) { return p.value[measures[2].id()]; })
 
-        .x(d3.scale.linear().domain(dimension.domainWithPadding(extraMeasures, measures[0], 0.20))).xAxisPadding('20%')
-        .y(d3.scale.linear().domain(dimension.domainWithPadding(extraMeasures, measures[1], 0.15))).yAxisPadding('15%')
-        .r(d3.scale.linear().domain(dimension.domain           (extraMeasures, measures[2]      )))
+        .x(d3.scale.linear().domain(dimension.domainWithPadding(0.20, extraMeasures, measures[0]))).xAxisPadding('20%')
+        .y(d3.scale.linear().domain(dimension.domainWithPadding(0.15, extraMeasures, measures[1]))).yAxisPadding('15%')
+        .r(d3.scale.linear().domain(dimension.domain           (      extraMeasures, measures[2])))
 
         .xAxisLabel(measures[0].caption())
         .yAxisLabel(measures[1].caption())

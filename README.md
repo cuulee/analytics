@@ -41,7 +41,7 @@ If you want to run the full application, you will also need:
 Some geo-business intelligence data in a postgreSQL database, and a
 GeoMondrian installed. To install GeoMondrian, yu can follow [this](https://github.com/loganalysis/analytics/wiki/GeoMondrian) guide.
 
-To install the [solap4py-java](https://github.com/loganalysis/solap4py-java) component and
+To install  [Mandoline](https://github.com/loganalysis/mandoline) component and
 start it.
 
 You can configure the data you will use in the settings.py with the flag *FIXTURES*:

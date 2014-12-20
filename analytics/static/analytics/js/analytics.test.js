@@ -1,5 +1,5 @@
 /*!
- *  analytics 0.1.0
+ *  analytics 1.0.0
  *  https://github.com/loganalysis/analytics-js
  *  Copyright (c) 2014 LogAnalysis
  *
@@ -47,7 +47,7 @@ analytics.csts = {
 ```
 **/
 var analytics = {
-  version: '0.1.0',
+  version: '1.0.0',
   csts : {
     crossfilterClientVsServerThreshold : 20000,
     resizeDelay : 350,
@@ -3512,6 +3512,16 @@ analytics.display = (function() {
     display.redraw();
   }
 
+  display.hideUnfilteredOnTimeline = function (hideUnfiltered) {
+    var option = false;
+    display.charts().forEach(function (chart) {
+      if (chart.type() == 'timeline')
+        option = chart.options().hideUnfiltered;
+        chart.setOption('hideUnfiltered', hideUnfiltered);
+    });
+    return option;
+  };
+
   display.freezeScalesAcross = function (dimension) {
     analytics.state.freezeDomainsAcross(dimension);
     display.charts().forEach(function (chart) {
@@ -4706,12 +4716,14 @@ analytics.charts.chart = (function () {
           el.children().toggleClass('fa-pause');
 
           if (_player === undefined) {
+            var oldOption = analytics.display.hideUnfilteredOnTimeline(false);
             analytics.display.freezeScalesAcross(_dimensions[0]);
             _player = analytics.charts.player(_chart);
             _player.callback(function () {
               el.children().toggleClass('fa-play');
               el.children().toggleClass('fa-pause');
 
+              analytics.display.hideUnfilteredOnTimeline(oldOption);
               analytics.display.unfreezeScales();
               _player = undefined;
             });
@@ -4788,11 +4800,12 @@ analytics.charts.chart = (function () {
         }
 
         $(_selector + ' .chart-title').empty()
+            .append('<span data-toggle="tooltip" title="Total of selected elements">Total:</span> ')
+            .append(totalSpan)                                             .append(' &bull; ')
             .append(measureTitle)                                          .append(' &bull; ')
             .append(_dimensions[0].levels()[_dimensions[0].currentLevel()]).append(' &bull; ')
             .append(dimensionTitle)                                        .append(' &bull; ')
-            .append(analytics.state.cube().caption())                      .append(' &bull; ')
-            .append('Total: ').append(totalSpan);
+            .append(analytics.state.cube().caption());
       }
     }
 
@@ -5038,7 +5051,7 @@ analytics.charts.map = (function () {
 
     _chart._initChartSpecific = function () {
       _chart.element()
-        .colorCalculator(function (d) { return d ? _chart.element().colors()(d) : '#ccc'; })
+        .colorCalculator(function (d) { return isNaN(d) ? '#ccc' : _chart.element().colors()(d); })
 
         .projection(d3.geo.mercator());
 
@@ -5451,7 +5464,7 @@ analytics.charts.wordcloud = (function () {
 
     _chart._initChartSpecific = function () {
       _chart.element()
-        .colorCalculator(function (d) { return d ? _chart.element().colors()(d) : '#ccc'; });
+        .colorCalculator(function (d) { return isNaN(d) ? '#ccc' : _chart.element().colors()(d); });
     };
 
     return _chart;
@@ -5489,7 +5502,7 @@ analytics.charts.wordcloudWithLegend = (function () {
     _chart._initChartSpecific = function () {
       _chart.element()
         .showLegend(_chart.selector()+' .wordcloud-legend')
-        .colorCalculator(function (d) { return d ? _chart.element().colors()(d) : '#ccc'; });
+        .colorCalculator(function (d) { return isNaN(d) ? '#ccc' : _chart.element().colors()(d); });
 
       $(_chart.selector()+' .chart-header').css('cursor', 'pointer');
       $(_chart.selector()+' .chart-header').click(function () {
@@ -5558,7 +5571,7 @@ analytics.charts.bubble = (function () {
       _chart.element()
         .colorCalculator(function (d) {
           var measureId = analytics.state.measure().id();
-          return d.value[measureId] ? _chart.element().colors()(d.value[measureId]) : '#ccc';
+          return isNaN(d.value[measureId]) ? '#ccc' : _chart.element().colors()(d.value[measureId]);
         })
 
         .margins({top: 0, right: 0, bottom: 30, left: 45})
